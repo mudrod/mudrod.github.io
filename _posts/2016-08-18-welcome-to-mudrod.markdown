@@ -1,12 +1,13 @@
 ---
 layout: post
-title:  "Building prototypes"
+title:  "Welcome to the MUDROD Project"
 categories: weekly update
 ---
 
-Last week we discussed with the client possible end results for our project and clarified some details regarding the path that the project should take.
+Thank you for dropping by, you've arrived at the official MUDROD website. From here you will find everything you need in order to become engaged with MUDROD.
 
+First things, first however... we bet you are asking "What MUDROD mean?" 
 
-We turned in a revision to our requirements document as well as the technology review.
+The answer... in a nutchshell it represents **M**ining and **U**tilizing **D**ataset **R**elevancy from **O**ceanographic **D**atasets to Improve Data Discovery. The project was funded in 2015 as an Access project funded by NASA AIST (Grant No. NNX15AM85G).
 
-This week we hope to further investigate our project and start developing more details about it. We will also be putting together a draft of our poster.​
+So, please make yourself at home and **subscribe to our [RSS Feed](https://mudrod.github.io/feed.xml) for updates**.
