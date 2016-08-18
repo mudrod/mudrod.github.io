@@ -1,0 +1,20 @@
+# Site settings
+title: ARIA-P
+baseurl: "" # the subpath of your site, e.g. /blog/
+url: "aria-p.github.io" # the base hostname & protocol for your site
+
+# Build settings
+markdown: kramdown
+
+github: https://github.com/aria-p
+google_analytics: UA-52446115-1
+
+paginate: 10
+comments: true
+paginate_path: "/page/:num"
+
+sass:
+  style: :compressed
+  sass_dir: _sass
+
+permalink : /:title/

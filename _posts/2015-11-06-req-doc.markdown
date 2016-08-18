@@ -1,0 +1,9 @@
+---
+layout: post
+title:  "Requirments doc and Technology review."
+categories: weekly update
+---
+
+This week we met with the TA and discussed how to improve our  requirements document. We also discussed where details needed to be included with regards to it and the technology review. 
+
+This week we have also been preparing for our client meeting next week. After discussing possible use cases with a local professor and gaining clarification of our project through email last week we are beginning to start pining down what technologies we think we will use and discuss it with our clients. ​
