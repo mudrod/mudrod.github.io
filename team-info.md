@@ -4,15 +4,15 @@ title: Team Info
 permalink: /team-info/
 ---
 
-## ARIA-P Team Websites
+## MUDROD Team Websites
 
 *Bookmark this page!*
 
 ### Websites
 
-[Google Groups -- Broadcast documents or ask questions](https://groups.google.com/forum/#!topic/aria-p-dev/LHRyx2prGQU)
+[Google Groups -- Broadcast documents or ask questions](https://groups.google.com/forum/#!topic/mudrod-dev/LHRyx2prGQU)
 
-[Github -- Source Code](https://github.com/aria-p)
+[Github -- Source Code](https://github.com/mudrod)
 
 [Trello -- Ideas & Tasks](https://trello.com/aria62)
 
