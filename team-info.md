@@ -4,17 +4,16 @@ title: Team Info
 permalink: /team-info/
 ---
 
-## MUDROD Team Websites
+## MUDROD Team
 
 *Bookmark this page!*
 
-### Websites
-
-[Google Groups -- Broadcast documents or ask questions](https://groups.google.com/forum/#!topic/mudrod-dev/LHRyx2prGQU)
-
-[Github -- Source Code](https://github.com/mudrod)
-
-[Trello -- Ideas & Tasks](https://trello.com/aria62)
-
-[Google Drive -- Files & Documents](https://drive.google.com/folderview?id=0B6FTBa9iYPrnWEdIa0VCOGZUZVE&usp=sharing)
+ * Chaowei (Phil) Yang - [NSF Spatiotemporal Innovation Center](http://stcenter.net/), George Mason University
+ * [Yongyao Jiang](https://www.linkedin.com/in/yongyao-jiang-42516164) - [NSF Spatiotemporal Innovation Center](http://stcenter.net/), George Mason University
+ * Yun Li - [NSF Spatiotemporal Innovation Center](http://stcenter.net/), George Mason University
+ * Edward M Armstrong - [Jet Propulsion Laboratory](http://www.jpl.nasa.gov/), [NASA](http://www.nasa.gov)
+ * Thomas Huang - [Jet Propulsion Laboratory](http://www.jpl.nasa.gov/), [NASA](http://www.nasa.gov)
+ * David Moroni - [Jet Propulsion Laboratory](http://www.jpl.nasa.gov/), [NASA](http://www.nasa.gov)
+ * Chris Finch - [Jet Propulsion Laboratory](http://www.jpl.nasa.gov/), [NASA](http://www.nasa.gov)
+ * [Lewis John Mcgibbney](https://www.linkedin.com/in/lmcgibbney) - [Jet Propulsion Laboratory](http://www.jpl.nasa.gov/), [NASA](http://www.nasa.gov)
 
