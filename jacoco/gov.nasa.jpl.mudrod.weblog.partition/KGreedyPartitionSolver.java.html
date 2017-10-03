@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KGreedyPartitionSolver.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.partition</a> &gt; <span class="el_source">KGreedyPartitionSolver.java</span></div><h1>KGreedyPartitionSolver.java</h1><pre class="source lang-java linenums">package gov.nasa.jpl.mudrod.weblog.partition;
+
+import java.util.*;
+
+public class KGreedyPartitionSolver implements ThePartitionProblemSolver {
+
+<span class="nc" id="L7">  public boolean bsorted = false;</span>
+
+<span class="nc" id="L9">  public KGreedyPartitionSolver() {</span>
+    // default constructor
+<span class="nc" id="L11">  }</span>
+
+<span class="nc" id="L13">  public KGreedyPartitionSolver(boolean bsorted) {</span>
+<span class="nc" id="L14">    this.bsorted = true;</span>
+<span class="nc" id="L15">  }</span>
+
+  @Override
+  public Map&lt;String, Integer&gt; solve(Map&lt;String, Double&gt; labelNums, int k) {
+<span class="nc" id="L19">    List&lt;Double&gt; lista = null;</span>
+<span class="nc" id="L20">    List&lt;String&gt; months = null;</span>
+
+<span class="nc bnc" id="L22" title="All 2 branches missed.">    if (!this.bsorted) {</span>
+<span class="nc" id="L23">      LinkedHashMap sortedMap = this.sortMapByValue(labelNums);</span>
+<span class="nc" id="L24">      lista = new ArrayList(sortedMap.values());</span>
+<span class="nc" id="L25">      months = new ArrayList(sortedMap.keySet());</span>
+<span class="nc" id="L26">    } else {</span>
+<span class="nc" id="L27">      lista = new ArrayList(labelNums.values());</span>
+<span class="nc" id="L28">      months = new ArrayList(labelNums.keySet());</span>
+    }
+
+<span class="nc" id="L31">    List&lt;List&lt;Double&gt;&gt; parts = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L32">    List&lt;List&lt;String&gt;&gt; splitMonths = new ArrayList&lt;&gt;();</span>
+
+<span class="nc bnc" id="L34" title="All 2 branches missed.">    for (int i = 0; i &lt; k; i++) {</span>
+<span class="nc" id="L35">      List&lt;Double&gt; part = new ArrayList();</span>
+<span class="nc" id="L36">      parts.add(part);</span>
+
+<span class="nc" id="L38">      List&lt;String&gt; monthList = new ArrayList();</span>
+<span class="nc" id="L39">      splitMonths.add(monthList);</span>
+    }
+
+<span class="nc" id="L42">    int j = 0;</span>
+<span class="nc bnc" id="L43" title="All 2 branches missed.">    for (Double lista1 : lista) {</span>
+
+<span class="nc" id="L45">      Double minimalSum = -1.0;</span>
+<span class="nc" id="L46">      int position = 0;</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">      for (int i = 0; i &lt; parts.size(); i++) {</span>
+<span class="nc" id="L48">        List&lt;Double&gt; part = parts.get(i);</span>
+<span class="nc bnc" id="L49" title="All 2 branches missed.">        if (minimalSum == -1) {</span>
+<span class="nc" id="L50">          minimalSum = Suma(part);</span>
+<span class="nc" id="L51">          position = i;</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">        } else if (Suma(part) &lt; minimalSum) {</span>
+<span class="nc" id="L53">          minimalSum = Suma(part);</span>
+<span class="nc" id="L54">          position = i;</span>
+        }
+      }
+
+<span class="nc" id="L58">      List&lt;Double&gt; part = parts.get(position);</span>
+<span class="nc" id="L59">      part.add(lista1);</span>
+<span class="nc" id="L60">      parts.set(position, part);</span>
+
+<span class="nc" id="L62">      List&lt;String&gt; month = splitMonths.get(position);</span>
+<span class="nc" id="L63">      month.add(months.get(j));</span>
+<span class="nc" id="L64">      splitMonths.set(position, month);</span>
+<span class="nc" id="L65">      j++;</span>
+<span class="nc" id="L66">    }</span>
+
+    /*  for(int i=0; i&lt;splitMonths.size(); i++){
+        System.out.println(&quot;group:&quot; + i);
+        printStrList(splitMonths.get(i));
+      }
+      
+      for(int i=0; i&lt;parts.size(); i++){
+        print(parts.get(i));
+      }*/
+
+<span class="nc" id="L77">    Map&lt;String, Integer&gt; LabelGroups = new HashMap&lt;String, Integer&gt;();</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">    for (int i = 0; i &lt; splitMonths.size(); i++) {</span>
+<span class="nc" id="L79">      List&lt;String&gt; list = splitMonths.get(i);</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">      for (int m = 0; m &lt; list.size(); m++) {</span>
+<span class="nc" id="L81">        LabelGroups.put(list.get(m), i);</span>
+      }
+    }
+
+<span class="nc" id="L85">    return LabelGroups;</span>
+  }
+
+  public LinkedHashMap&lt;String, Double&gt; sortMapByValue(Map passedMap) {
+<span class="nc" id="L89">    List mapKeys = new ArrayList(passedMap.keySet());</span>
+<span class="nc" id="L90">    List mapValues = new ArrayList(passedMap.values());</span>
+<span class="nc" id="L91">    Collections.sort(mapValues, Collections.reverseOrder());</span>
+<span class="nc" id="L92">    Collections.sort(mapKeys, Collections.reverseOrder());</span>
+
+<span class="nc" id="L94">    LinkedHashMap sortedMap = new LinkedHashMap();</span>
+
+<span class="nc" id="L96">    Iterator valueIt = mapValues.iterator();</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">    while (valueIt.hasNext()) {</span>
+<span class="nc" id="L98">      Object val = valueIt.next();</span>
+<span class="nc" id="L99">      Iterator keyIt = mapKeys.iterator();</span>
+
+<span class="nc bnc" id="L101" title="All 2 branches missed.">      while (keyIt.hasNext()) {</span>
+<span class="nc" id="L102">        Object key = keyIt.next();</span>
+<span class="nc" id="L103">        String comp1 = passedMap.get(key).toString();</span>
+<span class="nc" id="L104">        String comp2 = val.toString();</span>
+
+<span class="nc bnc" id="L106" title="All 2 branches missed.">        if (comp1.equals(comp2)) {</span>
+<span class="nc" id="L107">          passedMap.remove(key);</span>
+<span class="nc" id="L108">          mapKeys.remove(key);</span>
+<span class="nc" id="L109">          sortedMap.put((String) key, (Double) val);</span>
+<span class="nc" id="L110">          break;</span>
+        }
+
+<span class="nc" id="L113">      }</span>
+
+<span class="nc" id="L115">    }</span>
+<span class="nc" id="L116">    return sortedMap;</span>
+  }
+
+  private Double Suma(List&lt;Double&gt; part) {
+<span class="nc" id="L120">    Double ret = 0.0;</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">    for (int i = 0; i &lt; part.size(); i++) {</span>
+<span class="nc" id="L122">      ret += part.get(i);</span>
+    }
+<span class="nc" id="L124">    return ret;</span>
+  }
+
+  private void print(List&lt;Double&gt; list) {
+    /*for (int i = 0; i &lt; list.size(); i++) {
+        System.out.print(list.get(i)+&quot;,&quot;);
+    }*/
+<span class="nc" id="L131">    System.out.print(&quot;sum is:&quot; + Suma(list));</span>
+<span class="nc" id="L132">    System.out.println();</span>
+<span class="nc" id="L133">  }</span>
+
+  private void printStrList(List&lt;String&gt; list) {
+<span class="nc bnc" id="L136" title="All 2 branches missed.">    for (int i = 0; i &lt; list.size(); i++) {</span>
+<span class="nc" id="L137">      System.out.print(list.get(i) + &quot;,&quot;);</span>
+    }
+<span class="nc" id="L139">    System.out.println();</span>
+<span class="nc" id="L140">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

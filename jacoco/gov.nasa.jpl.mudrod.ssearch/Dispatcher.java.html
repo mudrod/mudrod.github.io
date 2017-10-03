@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Dispatcher.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.ssearch</a> &gt; <span class="el_source">Dispatcher.java</span></div><h1>Dispatcher.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.ssearch;
+
+import gov.nasa.jpl.mudrod.discoveryengine.MudrodAbstract;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.integration.LinkageIntegration;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.MatchQueryBuilder;
+import org.elasticsearch.index.query.MultiMatchQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Properties;
+
+/**
+ * Supports ability to transform regular user query into a semantic query
+ */
+public class Dispatcher extends MudrodAbstract {
+<span class="nc" id="L36">  private static final Logger LOG = LoggerFactory.getLogger(Dispatcher.class);</span>
+
+  public Dispatcher(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L39">    super(props, es, spark);</span>
+<span class="nc" id="L40">  }</span>
+
+  /**
+   * Method of getting semantically most related terms by number
+   *
+   * @param input regular input query
+   * @param num   the number of most related terms
+   * @return a map from term to similarity
+   */
+  public Map&lt;String, Double&gt; getRelatedTerms(String input, int num) {
+<span class="nc" id="L50">    LinkageIntegration li = new LinkageIntegration(props, this.es, null);</span>
+<span class="nc" id="L51">    Map&lt;String, Double&gt; sortedMap = li.appyMajorRule(input);</span>
+<span class="nc" id="L52">    Map&lt;String, Double&gt; selected_Map = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L53">    int count = 0;</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">    for (Entry&lt;String, Double&gt; entry : sortedMap.entrySet()) {</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">      if (count &lt; num) {</span>
+<span class="nc" id="L56">        selected_Map.put(entry.getKey(), entry.getValue());</span>
+      }
+<span class="nc" id="L58">      count++;</span>
+<span class="nc" id="L59">    }</span>
+<span class="nc" id="L60">    return selected_Map;</span>
+  }
+
+  /**
+   * Method of getting semantically most related terms by similarity threshold
+   *
+   * @param input regular input query
+   * @param T     value of threshold, raning from 0 to 1
+   * @return a map from term to similarity
+   */
+  public Map&lt;String, Double&gt; getRelatedTermsByT(String input, double T) {
+<span class="nc" id="L71">    LinkageIntegration li = new LinkageIntegration(this.props, this.es, null);</span>
+<span class="nc" id="L72">    Map&lt;String, Double&gt; sortedMap = li.appyMajorRule(input);</span>
+<span class="nc" id="L73">    Map&lt;String, Double&gt; selected_Map = new HashMap&lt;&gt;();</span>
+
+<span class="nc bnc" id="L75" title="All 2 branches missed.">    for (Entry&lt;String, Double&gt; entry : sortedMap.entrySet()) {</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">      if (entry.getValue() &gt;= T) {</span>
+<span class="nc" id="L77">        selected_Map.put(entry.getKey(), entry.getValue());</span>
+      }
+<span class="nc" id="L79">    }</span>
+<span class="nc" id="L80">    return selected_Map;</span>
+  }
+
+  /**
+   * Method of creating semantic query based on Threshold
+   *
+   * @param input          regular query
+   * @param T              threshold raning from 0 to 1
+   * @param query_operator query mode
+   * @return a multiMatch query builder
+   */
+  public BoolQueryBuilder createSemQuery(String input, double T, String query_operator) {
+<span class="nc" id="L92">    Map&lt;String, Double&gt; selected_Map = getRelatedTermsByT(input, T);</span>
+<span class="nc" id="L93">    selected_Map.put(input, (double) 1);</span>
+
+<span class="nc" id="L95">    String fieldsList[] = { &quot;Dataset-Metadata&quot;, &quot;Dataset-ShortName&quot;, &quot;Dataset-LongName&quot;, </span>
+        &quot;DatasetParameter-Topic&quot;, &quot;DatasetParameter-VariableDetail&quot;, &quot;DatasetParameter-Category&quot;,
+        &quot;DatasetParameter-Variable&quot;, &quot;DatasetParameter-Term&quot;,       
+        &quot;DatasetSource-Source-LongName&quot;, &quot;DatasetSource-Source-LongName-Full&quot;,
+        &quot;DatasetSource-Source-ShortName&quot;, &quot;DatasetSource-Source-ShortName-Full&quot;, 
+        &quot;DatasetSource-Sensor-LongName&quot;, &quot;DatasetSource-Sensor-LongName-Full&quot;, &quot;DatasetSource-Sensor-ShortName&quot;,
+        &quot;DatasetSource-Sensor-ShortName-Full&quot; };
+<span class="nc" id="L102">    BoolQueryBuilder qb = new BoolQueryBuilder();</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">    for (Entry&lt;String, Double&gt; entry : selected_Map.entrySet()) {</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">      if (query_operator.toLowerCase().trim().equals(&quot;phrase&quot;)) {</span>
+<span class="nc" id="L105">        qb.should(QueryBuilders.multiMatchQuery(entry.getKey(), fieldsList).boost(entry.getValue().floatValue()).type(MultiMatchQueryBuilder.Type.PHRASE).tieBreaker((float) 0.5)); // when</span>
+        // set
+        // to
+        // 1.0,
+        // it
+        // would
+        // be
+        // equal
+        // to
+        // &quot;most
+        // fields&quot;
+        // query
+<span class="nc bnc" id="L117" title="All 2 branches missed.">      } else if (query_operator.toLowerCase().trim().equals(&quot;and&quot;)) {</span>
+<span class="nc" id="L118">        qb.should(QueryBuilders.multiMatchQuery(entry.getKey(), fieldsList).boost(entry.getValue().floatValue()).operator(MatchQueryBuilder.DEFAULT_OPERATOR.AND).tieBreaker((float) 0.5));</span>
+      } else {
+<span class="nc" id="L120">        qb.should(QueryBuilders.multiMatchQuery(entry.getKey(), fieldsList).boost(entry.getValue().floatValue()).operator(MatchQueryBuilder.DEFAULT_OPERATOR.OR).tieBreaker((float) 0.5));</span>
+      }
+<span class="nc" id="L122">    }</span>
+
+    // LOG.info(qb.toString());
+<span class="nc" id="L125">    return qb;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

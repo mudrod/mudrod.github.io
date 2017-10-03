@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OntologyFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.ontology</a> &gt; <span class="el_source">OntologyFactory.java</span></div><h1>OntologyFactory.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.ontology;
+
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+import gov.nasa.jpl.mudrod.ontology.process.EsipCOROntology;
+import gov.nasa.jpl.mudrod.ontology.process.EsipPortalOntology;
+import gov.nasa.jpl.mudrod.ontology.process.LocalOntology;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Properties;
+
+/**
+ * The mechanism for creating an {@link Ontology}
+ * implementation. The {@link Ontology} implementation
+ * should be specified in
+ * &lt;a href=&quot;https://github.com/mudrod/mudrod/blob/master/core/src/main/resources/config.xml&quot;&gt;
+ * config.xml&lt;/a&gt; with configuration key
+ * &lt;code&gt;mudrod.ontology.implementation&lt;/code&gt;.
+ * This property can also be accessed via
+ * {@link MudrodConstants#ONTOLOGY_IMPL}.
+ *
+ * @author lewismc
+ */
+public class OntologyFactory {
+
+<span class="nc" id="L39">  public static final Logger LOG = LoggerFactory.getLogger(OntologyFactory.class);</span>
+
+  private Properties props;
+
+  /**
+   * The mechanism for creating an {@link Ontology}
+   * implementation.
+   *
+   * @param props a populated Mudrod {@link java.util.Properties} object.
+   */
+<span class="nc" id="L49">  public OntologyFactory(Properties props) {</span>
+<span class="nc" id="L50">    this.props = props;</span>
+<span class="nc" id="L51">  }</span>
+
+  /**
+   * Obtain the {@link Ontology}
+   * implementation for use within Mudrod.
+   *
+   * @return Returns the ontology implementation specified
+   * in &lt;a href=&quot;https://github.com/mudrod/mudrod/blob/master/core/src/main/resources/config.xml&quot;&gt;
+   * config.xml&lt;/a&gt; with configuration key
+   * &lt;code&gt;mudrod.ontology.implementation&lt;/code&gt;. This property can also be accessed via
+   * {@link MudrodConstants#ONTOLOGY_IMPL}.
+   */
+  public Ontology getOntology() {
+
+<span class="nc" id="L65">    String ontologyImpl = this.props.getProperty(MudrodConstants.ONTOLOGY_IMPL, &quot;Local&quot;);</span>
+
+<span class="nc" id="L67">    LOG.info(&quot;Using ontology extension: {}&quot;, ontologyImpl);</span>
+    Ontology ontImpl;
+<span class="nc bnc" id="L69" title="All 10 branches missed.">    switch (ontologyImpl) {</span>
+    case &quot;EsipCOR&quot;:
+<span class="nc" id="L71">      ontImpl = new EsipCOROntology();</span>
+<span class="nc" id="L72">      break;</span>
+    case &quot;EsipPortal&quot;:
+<span class="nc" id="L74">      ontImpl = new EsipPortalOntology();</span>
+<span class="nc" id="L75">      break;</span>
+    default:
+<span class="nc" id="L77">      ontImpl = new LocalOntology();</span>
+      break;
+    }
+<span class="nc" id="L80">    return ontImpl;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

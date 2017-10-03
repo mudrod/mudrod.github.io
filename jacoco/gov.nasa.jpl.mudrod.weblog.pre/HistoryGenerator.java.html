@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HistoryGenerator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.pre</a> &gt; <span class="el_source">HistoryGenerator.java</span></div><h1>HistoryGenerator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.weblog.pre;
+
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.*;
+
+/**
+ * Supports ability to generate search history (queries) for each individual
+ * user (IP)
+ */
+public class HistoryGenerator extends LogAbstract {
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L39">  private static final Logger LOG = LoggerFactory.getLogger(HistoryGenerator.class);</span>
+
+  public HistoryGenerator(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L42">    super(props, es, spark);</span>
+<span class="nc" id="L43">  }</span>
+
+  @Override
+  public Object execute() {
+<span class="nc" id="L47">    LOG.info(&quot;Starting HistoryGenerator...&quot;);</span>
+<span class="nc" id="L48">    startTime = System.currentTimeMillis();</span>
+
+<span class="nc" id="L50">    generateBinaryMatrix();</span>
+
+<span class="nc" id="L52">    endTime = System.currentTimeMillis();</span>
+<span class="nc" id="L53">    LOG.info(&quot;HistoryGenerator complete. Time elapsed {} seconds&quot;, (endTime - startTime) / 1000);</span>
+<span class="nc" id="L54">    return null;</span>
+  }
+
+  /**
+   * Method to generate a binary user*query matrix (stored in temporary .csv
+   * file)
+   */
+  public void generateBinaryMatrix() {
+    try {
+
+<span class="nc" id="L64">      System.out.println(props.getProperty(&quot;userHistoryMatrix&quot;));</span>
+<span class="nc" id="L65">      File file = new File(props.getProperty(&quot;userHistoryMatrix&quot;));</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">      if (file.exists()) {</span>
+<span class="nc" id="L67">        file.delete();</span>
+      }
+
+<span class="nc" id="L70">      file.createNewFile();</span>
+
+<span class="nc" id="L72">      FileWriter fw = new FileWriter(file.getAbsoluteFile());</span>
+<span class="nc" id="L73">      BufferedWriter bw = new BufferedWriter(fw);</span>
+<span class="nc" id="L74">      bw.write(&quot;Num&quot; + &quot;,&quot;);</span>
+
+      // step 1: write first row of csv
+<span class="nc" id="L77">      List&lt;String&gt; logIndexList = es.getIndexListWithPrefix(props.getProperty(MudrodConstants.LOG_INDEX));</span>
+
+<span class="nc" id="L79">      String[] logIndices = logIndexList.toArray(new String[0]);</span>
+<span class="nc" id="L80">      String[] statictypeArray = new String[] { this.sessionStats };</span>
+<span class="nc" id="L81">      int docCount = es.getDocCount(logIndices, statictypeArray);</span>
+
+<span class="nc" id="L83">      SearchResponse sr = es.getClient().prepareSearch(logIndices).setTypes(statictypeArray).setQuery(QueryBuilders.matchAllQuery()).setSize(0)</span>
+<span class="nc" id="L84">          .addAggregation(AggregationBuilders.terms(&quot;IPs&quot;).field(&quot;IP&quot;).size(docCount)).execute().actionGet();</span>
+<span class="nc" id="L85">      Terms ips = sr.getAggregations().get(&quot;IPs&quot;);</span>
+<span class="nc" id="L86">      List&lt;String&gt; ipList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">      for (Terms.Bucket entry : ips.getBuckets()) {</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        if (entry.getDocCount() &gt; Integer.parseInt(props.getProperty(MudrodConstants.MINI_USER_HISTORY))) { // filter</span>
+          // out
+          // less
+          // active users/ips
+<span class="nc" id="L92">          ipList.add(entry.getKey().toString());</span>
+        }
+<span class="nc" id="L94">      }</span>
+<span class="nc" id="L95">      bw.write(String.join(&quot;,&quot;, ipList) + &quot;\n&quot;);</span>
+
+      // step 2: step the rest rows of csv
+<span class="nc" id="L98">      SearchRequestBuilder sr2Builder = es.getClient().prepareSearch(logIndices).setTypes(statictypeArray).setQuery(QueryBuilders.matchAllQuery()).setSize(0)</span>
+<span class="nc" id="L99">          .addAggregation(AggregationBuilders.terms(&quot;KeywordAgg&quot;).field(&quot;keywords&quot;).size(docCount).subAggregation(AggregationBuilders.terms(&quot;IPAgg&quot;).field(&quot;IP&quot;).size(docCount)));</span>
+
+<span class="nc" id="L101">      SearchResponse sr2 = sr2Builder.execute().actionGet();</span>
+<span class="nc" id="L102">      Terms keywords = sr2.getAggregations().get(&quot;KeywordAgg&quot;);</span>
+
+<span class="nc bnc" id="L104" title="All 2 branches missed.">      for (Terms.Bucket keyword : keywords.getBuckets()) {</span>
+
+<span class="nc" id="L106">        Map&lt;String, Integer&gt; ipMap = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L107">        Terms ipAgg = keyword.getAggregations().get(&quot;IPAgg&quot;);</span>
+
+<span class="nc" id="L109">        int distinctUser = ipAgg.getBuckets().size();</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        if (distinctUser &gt; Integer.parseInt(props.getProperty(MudrodConstants.MINI_USER_HISTORY))) {</span>
+<span class="nc" id="L111">          bw.write(keyword.getKey() + &quot;,&quot;);</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">          for (Terms.Bucket IP : ipAgg.getBuckets()) {</span>
+
+<span class="nc" id="L114">            ipMap.put(IP.getKey().toString(), 1);</span>
+<span class="nc" id="L115">          }</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">          for (int i = 0; i &lt; ipList.size(); i++) {</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">            if (ipMap.containsKey(ipList.get(i))) {</span>
+<span class="nc" id="L118">              bw.write(ipMap.get(ipList.get(i)) + &quot;,&quot;);</span>
+            } else {
+<span class="nc" id="L120">              bw.write(&quot;0,&quot;);</span>
+            }
+          }
+<span class="nc" id="L123">          bw.write(&quot;\n&quot;);</span>
+        }
+<span class="nc" id="L125">      }</span>
+
+<span class="nc" id="L127">      bw.close();</span>
+<span class="nc" id="L128">    } catch (IOException e) {</span>
+<span class="nc" id="L129">      e.printStackTrace();</span>
+<span class="nc" id="L130">    }</span>
+
+<span class="nc" id="L132">  }</span>
+
+  @Override
+  public Object execute(Object o) {
+<span class="nc" id="L136">    return null;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

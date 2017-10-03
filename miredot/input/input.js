@@ -9,13 +9,13 @@ com.qmino.miredot.restApiSource = {
 	"projectVersion":"0.0.1-SNAPSHOT",
 	"projectTitle":"Mudrod :: Service-0.0.1-SNAPSHOT",
 	"buildSystem":"maven 3",
-	"miredotVersion":"2.0.1",
-	"miredotRevision":"55309abbe842+",
+	"miredotVersion":"2.0.3",
+	"miredotRevision":"22d2e7a3171a+",
 	"jsonDocEnabled":true,
 	"jsonDocHidden":false,
 	"singlePage":false,
 	"hideLogoOnTop":false,
-	"dateOfGeneration":"2016-10-03 13:38:58",
+	"dateOfGeneration":"2017-10-03 13:57:09",
 	"validLicense":true,
 	"licenseErrorMessage":[
 		
@@ -24,7 +24,7 @@ com.qmino.miredot.restApiSource = {
 	"loginUrl":null,
 	"licenseType":"PRO",
 	"allowUsageTracking":true,
-	"licenseHash":"2484410021095167941",
+	"licenseHash":"-1411640696972874573",
 	"baseUrl":"http://www.example.com",
 	"applicationPath":"",
 	"issuesTabHidden":false,
@@ -354,10 +354,33 @@ com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"].content = [
 		"required":false,
 	},
 	{
+		"name":"cookies",
+		"comment":null,
+		"fullComment":null,
+		"typeValue":{
+			"type":"map",
+			"typeKey":{
+				"type":"simple",
+				"typeValue":"string",
+			},
+			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_NewCookie_out"],
+		},
+		"deprecated":false,
+		"required":false,
+	},
+	{
 		"name":"statusInfo",
 		"comment":null,
 		"fullComment":null,
 		"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response$StatusType_out"],
+		"deprecated":false,
+		"required":false,
+	},
+	{
+		"name":"mediaType",
+		"comment":null,
+		"fullComment":null,
+		"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_MediaType_out"],
 		"deprecated":false,
 		"required":false,
 	},
@@ -401,29 +424,6 @@ com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"].content = [
 				},
 			},
 		},
-		"deprecated":false,
-		"required":false,
-	},
-	{
-		"name":"cookies",
-		"comment":null,
-		"fullComment":null,
-		"typeValue":{
-			"type":"map",
-			"typeKey":{
-				"type":"simple",
-				"typeValue":"string",
-			},
-			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_NewCookie_out"],
-		},
-		"deprecated":false,
-		"required":false,
-	},
-	{
-		"name":"mediaType",
-		"comment":null,
-		"fullComment":null,
-		"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_MediaType_out"],
 		"deprecated":false,
 		"required":false,
 	},
@@ -477,17 +477,6 @@ com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_NewCookie_out"].content = 
 		"required":false,
 	},
 	{
-		"name":"domain",
-		"comment":null,
-		"fullComment":null,
-		"typeValue":{
-			"type":"simple",
-			"typeValue":"string",
-		},
-		"deprecated":false,
-		"required":false,
-	},
-	{
 		"name":"version",
 		"comment":null,
 		"fullComment":null,
@@ -499,23 +488,12 @@ com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_NewCookie_out"].content = 
 		"required":false,
 	},
 	{
-		"name":"comment",
+		"name":"domain",
 		"comment":null,
 		"fullComment":null,
 		"typeValue":{
 			"type":"simple",
 			"typeValue":"string",
-		},
-		"deprecated":false,
-		"required":false,
-	},
-	{
-		"name":"maxAge",
-		"comment":null,
-		"fullComment":null,
-		"typeValue":{
-			"type":"simple",
-			"typeValue":"number",
 		},
 		"deprecated":false,
 		"required":false,
@@ -532,12 +510,34 @@ com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_NewCookie_out"].content = 
 		"required":false,
 	},
 	{
+		"name":"comment",
+		"comment":null,
+		"fullComment":null,
+		"typeValue":{
+			"type":"simple",
+			"typeValue":"string",
+		},
+		"deprecated":false,
+		"required":false,
+	},
+	{
 		"name":"secure",
 		"comment":null,
 		"fullComment":null,
 		"typeValue":{
 			"type":"simple",
 			"typeValue":"boolean",
+		},
+		"deprecated":false,
+		"required":false,
+	},
+	{
+		"name":"maxAge",
+		"comment":null,
+		"fullComment":null,
+		"typeValue":{
+			"type":"simple",
+			"typeValue":"number",
 		},
 		"deprecated":false,
 		"required":false,
@@ -592,14 +592,6 @@ com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response$StatusType_in"].o
 com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response$StatusType_in"].comment = null;
 com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response$StatusType_out"].content = [
 	{
-		"name":"family",
-		"comment":null,
-		"fullComment":null,
-		"typeValue":com.qmino.miredot.restApiSource.enums["javax_ws_rs_core_Response$Status$Family"],
-		"deprecated":false,
-		"required":false,
-	},
-	{
 		"name":"statusCode",
 		"comment":null,
 		"fullComment":null,
@@ -607,6 +599,14 @@ com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response$StatusType_out"].
 			"type":"simple",
 			"typeValue":"number",
 		},
+		"deprecated":false,
+		"required":false,
+	},
+	{
+		"name":"family",
+		"comment":null,
+		"fullComment":null,
+		"typeValue":com.qmino.miredot.restApiSource.enums["javax_ws_rs_core_Response$Status$Family"],
 		"deprecated":false,
 		"required":false,
 	},
@@ -641,6 +641,17 @@ com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Link_out"].content = [
 		"required":false,
 	},
 	{
+		"name":"uri",
+		"comment":null,
+		"fullComment":null,
+		"typeValue":{
+			"type":"simple",
+			"typeValue":"java.net.URI",
+		},
+		"deprecated":false,
+		"required":false,
+	},
+	{
 		"name":"title",
 		"comment":null,
 		"fullComment":null,
@@ -665,17 +676,6 @@ com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Link_out"].content = [
 				"type":"simple",
 				"typeValue":"string",
 			},
-		},
-		"deprecated":false,
-		"required":false,
-	},
-	{
-		"name":"uri",
-		"comment":null,
-		"fullComment":null,
-		"typeValue":{
-			"type":"simple",
-			"typeValue":"java.net.URI",
 		},
 		"deprecated":false,
 		"required":false,
@@ -719,6 +719,241 @@ com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Link_out"].comment = null;
 com.qmino.miredot.restApiSource.interfaces = [
 	{
 		"beschrijving":"",
+		"url":"/vocabulary/search",
+		"http":"GET",
+		"title":null,
+		"tags":[
+			
+		],
+		"authors":[
+			
+		],
+		"compressed":false,
+		"deprecated":false,
+		"consumes":[
+		],
+		"produces":[
+			"application/json",
+		],
+		"roles":[
+		],
+		"rolesAllowed":null,
+		"permitAll":false,
+		"output":{
+			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"],
+			"comment":null,
+		},
+		"statusCodes":[
+		],
+		"hash":"-100538336",
+		"responseHeaders":{
+			"headers":[
+			],
+			"customHeaders":[
+			],
+		},
+		"inputs":{
+			"PATH":[
+			],
+			"QUERY":[
+				{
+					"name":"query",
+					"typeValue":{
+						"type":"simple",
+						"typeValue":"string",
+					},
+					"comment":null,
+					"jaxrs":"QUERY",
+				},
+			],
+			"BODY":[
+			],
+			"HEADER":[
+			],
+			"COOKIE":[
+			],
+			"FORM":[
+			],
+			"MATRIX":[
+			],
+		},
+	},
+	{
+		"beschrijving":"",
+		"url":"/ontology/status",
+		"http":"GET",
+		"title":null,
+		"tags":[
+			
+		],
+		"authors":[
+			
+		],
+		"compressed":false,
+		"deprecated":false,
+		"consumes":[
+		],
+		"produces":[
+			"text/html",
+		],
+		"roles":[
+		],
+		"rolesAllowed":null,
+		"permitAll":false,
+		"output":{
+			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"],
+			"comment":null,
+		},
+		"statusCodes":[
+		],
+		"hash":"592349676",
+		"responseHeaders":{
+			"headers":[
+			],
+			"customHeaders":[
+			],
+		},
+		"inputs":{
+			"PATH":[
+			],
+			"QUERY":[
+			],
+			"BODY":[
+			],
+			"HEADER":[
+			],
+			"COOKIE":[
+			],
+			"FORM":[
+			],
+			"MATRIX":[
+			],
+		},
+	},
+	{
+		"beschrijving":"",
+		"url":"/hrecommendation/search",
+		"http":"GET",
+		"title":null,
+		"tags":[
+			
+		],
+		"authors":[
+			
+		],
+		"compressed":false,
+		"deprecated":false,
+		"consumes":[
+		],
+		"produces":[
+			"application/json",
+		],
+		"roles":[
+		],
+		"rolesAllowed":null,
+		"permitAll":false,
+		"output":{
+			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"],
+			"comment":null,
+		},
+		"statusCodes":[
+		],
+		"hash":"1325521442",
+		"responseHeaders":{
+			"headers":[
+			],
+			"customHeaders":[
+			],
+		},
+		"inputs":{
+			"PATH":[
+			],
+			"QUERY":[
+				{
+					"name":"shortname",
+					"typeValue":{
+						"type":"simple",
+						"typeValue":"string",
+					},
+					"comment":null,
+					"jaxrs":"QUERY",
+				},
+			],
+			"BODY":[
+			],
+			"HEADER":[
+			],
+			"COOKIE":[
+			],
+			"FORM":[
+			],
+			"MATRIX":[
+			],
+		},
+	},
+	{
+		"beschrijving":"",
+		"url":"/ontology/subclass",
+		"http":"GET",
+		"title":null,
+		"tags":[
+			
+		],
+		"authors":[
+			
+		],
+		"compressed":false,
+		"deprecated":false,
+		"consumes":[
+		],
+		"produces":[
+			"application/json",
+		],
+		"roles":[
+		],
+		"rolesAllowed":null,
+		"permitAll":false,
+		"output":{
+			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"],
+			"comment":null,
+		},
+		"statusCodes":[
+		],
+		"hash":"-290428490",
+		"responseHeaders":{
+			"headers":[
+			],
+			"customHeaders":[
+			],
+		},
+		"inputs":{
+			"PATH":[
+			],
+			"QUERY":[
+				{
+					"name":"query",
+					"typeValue":{
+						"type":"simple",
+						"typeValue":"string",
+					},
+					"comment":null,
+					"jaxrs":"QUERY",
+				},
+			],
+			"BODY":[
+			],
+			"HEADER":[
+			],
+			"COOKIE":[
+			],
+			"FORM":[
+			],
+			"MATRIX":[
+			],
+		},
+	},
+	{
+		"beschrijving":"",
 		"url":"/autocomplete/status",
 		"http":"GET",
 		"title":null,
@@ -745,7 +980,7 @@ com.qmino.miredot.restApiSource.interfaces = [
 		},
 		"statusCodes":[
 		],
-		"hash":"1971134413",
+		"hash":"1491826988",
 		"responseHeaders":{
 			"headers":[
 			],
@@ -771,9 +1006,70 @@ com.qmino.miredot.restApiSource.interfaces = [
 	},
 	{
 		"beschrijving":"",
-		"url":"/vocabulary/status",
+		"url":"/ontology/synonym",
 		"http":"GET",
 		"title":null,
+		"tags":[
+			
+		],
+		"authors":[
+			
+		],
+		"compressed":false,
+		"deprecated":false,
+		"consumes":[
+		],
+		"produces":[
+			"application/json",
+		],
+		"roles":[
+		],
+		"rolesAllowed":null,
+		"permitAll":false,
+		"output":{
+			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"],
+			"comment":null,
+		},
+		"statusCodes":[
+		],
+		"hash":"1333917288",
+		"responseHeaders":{
+			"headers":[
+			],
+			"customHeaders":[
+			],
+		},
+		"inputs":{
+			"PATH":[
+			],
+			"QUERY":[
+				{
+					"name":"query",
+					"typeValue":{
+						"type":"simple",
+						"typeValue":"string",
+					},
+					"comment":null,
+					"jaxrs":"QUERY",
+				},
+			],
+			"BODY":[
+			],
+			"HEADER":[
+			],
+			"COOKIE":[
+			],
+			"FORM":[
+			],
+			"MATRIX":[
+			],
+		},
+	},
+	{
+		"beschrijving":"A simple health status checker for this resource.",
+		"url":"/datasetdetail/status",
+		"http":"GET",
+		"title":"A simple health status checker for this resource",
 		"tags":[
 			
 		],
@@ -793,316 +1089,11 @@ com.qmino.miredot.restApiSource.interfaces = [
 		"permitAll":false,
 		"output":{
 			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"],
-			"comment":null,
+			"comment":"a static html response if the service is running correctly.",
 		},
 		"statusCodes":[
 		],
-		"hash":"1045417918",
-		"responseHeaders":{
-			"headers":[
-			],
-			"customHeaders":[
-			],
-		},
-		"inputs":{
-			"PATH":[
-			],
-			"QUERY":[
-			],
-			"BODY":[
-			],
-			"HEADER":[
-			],
-			"COOKIE":[
-			],
-			"FORM":[
-			],
-			"MATRIX":[
-			],
-		},
-	},
-	{
-		"beschrijving":"",
-		"url":"/recommendation/{shortname}",
-		"http":"PUT",
-		"title":null,
-		"tags":[
-			
-		],
-		"authors":[
-			
-		],
-		"compressed":false,
-		"deprecated":false,
-		"consumes":[
-		],
-		"produces":[
-			"application/json",
-		],
-		"roles":[
-		],
-		"rolesAllowed":null,
-		"permitAll":false,
-		"output":{
-			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"],
-			"comment":null,
-		},
-		"statusCodes":[
-		],
-		"hash":"1065248765",
-		"responseHeaders":{
-			"headers":[
-			],
-			"customHeaders":[
-			],
-		},
-		"inputs":{
-			"PATH":[
-				{
-					"name":"shortname",
-					"typeValue":{
-						"type":"simple",
-						"typeValue":"string",
-					},
-					"comment":null,
-					"jaxrs":"PATH",
-				},
-			],
-			"QUERY":[
-			],
-			"BODY":[
-			],
-			"HEADER":[
-			],
-			"COOKIE":[
-			],
-			"FORM":[
-			],
-			"MATRIX":[
-			],
-		},
-	},
-	{
-		"beschrijving":"",
-		"url":"/hrecommendation/{shortname}",
-		"http":"PUT",
-		"title":null,
-		"tags":[
-			
-		],
-		"authors":[
-			
-		],
-		"compressed":false,
-		"deprecated":false,
-		"consumes":[
-		],
-		"produces":[
-			"application/json",
-		],
-		"roles":[
-		],
-		"rolesAllowed":null,
-		"permitAll":false,
-		"output":{
-			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"],
-			"comment":null,
-		},
-		"statusCodes":[
-		],
-		"hash":"1431695457",
-		"responseHeaders":{
-			"headers":[
-			],
-			"customHeaders":[
-			],
-		},
-		"inputs":{
-			"PATH":[
-				{
-					"name":"shortname",
-					"typeValue":{
-						"type":"simple",
-						"typeValue":"string",
-					},
-					"comment":null,
-					"jaxrs":"PATH",
-				},
-			],
-			"QUERY":[
-			],
-			"BODY":[
-			],
-			"HEADER":[
-			],
-			"COOKIE":[
-			],
-			"FORM":[
-			],
-			"MATRIX":[
-			],
-		},
-	},
-	{
-		"beschrijving":"",
-		"url":"/vocabulary/{concept}",
-		"http":"POST",
-		"title":null,
-		"tags":[
-			
-		],
-		"authors":[
-			
-		],
-		"compressed":false,
-		"deprecated":false,
-		"consumes":[
-		],
-		"produces":[
-			"application/json",
-		],
-		"roles":[
-		],
-		"rolesAllowed":null,
-		"permitAll":false,
-		"output":{
-			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"],
-			"comment":null,
-		},
-		"statusCodes":[
-		],
-		"hash":"1738167263",
-		"responseHeaders":{
-			"headers":[
-			],
-			"customHeaders":[
-			],
-		},
-		"inputs":{
-			"PATH":[
-				{
-					"name":"query",
-					"typeValue":{
-						"type":"simple",
-						"typeValue":"string",
-					},
-					"comment":null,
-					"jaxrs":"PATH",
-				},
-			],
-			"QUERY":[
-			],
-			"BODY":[
-			],
-			"HEADER":[
-			],
-			"COOKIE":[
-			],
-			"FORM":[
-			],
-			"MATRIX":[
-			],
-		},
-	},
-	{
-		"beschrijving":"",
-		"url":"/metadata/{query}-{operator}",
-		"http":"POST",
-		"title":null,
-		"tags":[
-			
-		],
-		"authors":[
-			
-		],
-		"compressed":false,
-		"deprecated":false,
-		"consumes":[
-		],
-		"produces":[
-			"application/json",
-		],
-		"roles":[
-		],
-		"rolesAllowed":null,
-		"permitAll":false,
-		"output":{
-			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"],
-			"comment":null,
-		},
-		"statusCodes":[
-		],
-		"hash":"708588683",
-		"responseHeaders":{
-			"headers":[
-			],
-			"customHeaders":[
-			],
-		},
-		"inputs":{
-			"PATH":[
-				{
-					"name":"query",
-					"typeValue":{
-						"type":"simple",
-						"typeValue":"string",
-					},
-					"comment":null,
-					"jaxrs":"PATH",
-				},
-				{
-					"name":"term",
-					"typeValue":{
-						"type":"simple",
-						"typeValue":"string",
-					},
-					"comment":null,
-					"jaxrs":"PATH",
-				},
-			],
-			"QUERY":[
-			],
-			"BODY":[
-			],
-			"HEADER":[
-			],
-			"COOKIE":[
-			],
-			"FORM":[
-			],
-			"MATRIX":[
-			],
-		},
-	},
-	{
-		"beschrijving":"",
-		"url":"/recommendation/status",
-		"http":"GET",
-		"title":null,
-		"tags":[
-			
-		],
-		"authors":[
-			
-		],
-		"compressed":false,
-		"deprecated":false,
-		"consumes":[
-		],
-		"produces":[
-			"text/html",
-		],
-		"roles":[
-		],
-		"rolesAllowed":null,
-		"permitAll":false,
-		"output":{
-			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"],
-			"comment":null,
-		},
-		"statusCodes":[
-		],
-		"hash":"360263157",
+		"hash":"-1855062211",
 		"responseHeaders":{
 			"headers":[
 			],
@@ -1154,7 +1145,7 @@ com.qmino.miredot.restApiSource.interfaces = [
 		},
 		"statusCodes":[
 		],
-		"hash":"-1135570244",
+		"hash":"577270683",
 		"responseHeaders":{
 			"headers":[
 			],
@@ -1180,8 +1171,8 @@ com.qmino.miredot.restApiSource.interfaces = [
 	},
 	{
 		"beschrijving":"",
-		"url":"/autocomplete/{term}",
-		"http":"POST",
+		"url":"/autocomplete/query",
+		"http":"GET",
 		"title":null,
 		"tags":[
 			
@@ -1206,7 +1197,208 @@ com.qmino.miredot.restApiSource.interfaces = [
 		},
 		"statusCodes":[
 		],
-		"hash":"1064674312",
+		"hash":"-2095899609",
+		"responseHeaders":{
+			"headers":[
+			],
+			"customHeaders":[
+			],
+		},
+		"inputs":{
+			"PATH":[
+			],
+			"QUERY":[
+				{
+					"name":"term",
+					"typeValue":{
+						"type":"simple",
+						"typeValue":"string",
+					},
+					"comment":null,
+					"jaxrs":"QUERY",
+				},
+			],
+			"BODY":[
+			],
+			"HEADER":[
+			],
+			"COOKIE":[
+			],
+			"FORM":[
+			],
+			"MATRIX":[
+			],
+		},
+	},
+	{
+		"beschrijving":"",
+		"url":"/datasetdetail/search",
+		"http":"GET",
+		"title":null,
+		"tags":[
+			
+		],
+		"authors":[
+			
+		],
+		"compressed":false,
+		"deprecated":false,
+		"consumes":[
+		],
+		"produces":[
+			"application/json",
+		],
+		"roles":[
+		],
+		"rolesAllowed":null,
+		"permitAll":false,
+		"output":{
+			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"],
+			"comment":null,
+		},
+		"statusCodes":[
+		],
+		"hash":"-74512613",
+		"responseHeaders":{
+			"headers":[
+			],
+			"customHeaders":[
+			],
+		},
+		"inputs":{
+			"PATH":[
+			],
+			"QUERY":[
+				{
+					"name":"shortname",
+					"typeValue":{
+						"type":"simple",
+						"typeValue":"string",
+					},
+					"comment":null,
+					"jaxrs":"QUERY",
+				},
+			],
+			"BODY":[
+			],
+			"HEADER":[
+			],
+			"COOKIE":[
+			],
+			"FORM":[
+			],
+			"MATRIX":[
+			],
+		},
+	},
+	{
+		"beschrijving":"",
+		"url":"/metadata/search",
+		"http":"GET",
+		"title":null,
+		"tags":[
+			
+		],
+		"authors":[
+			
+		],
+		"compressed":false,
+		"deprecated":false,
+		"consumes":[
+		],
+		"produces":[
+			"application/json",
+		],
+		"roles":[
+		],
+		"rolesAllowed":null,
+		"permitAll":false,
+		"output":{
+			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"],
+			"comment":null,
+		},
+		"statusCodes":[
+		],
+		"hash":"1069133007",
+		"responseHeaders":{
+			"headers":[
+			],
+			"customHeaders":[
+			],
+		},
+		"inputs":{
+			"PATH":[
+			],
+			"QUERY":[
+				{
+					"name":"query",
+					"typeValue":{
+						"type":"simple",
+						"typeValue":"string",
+					},
+					"comment":null,
+					"jaxrs":"QUERY",
+				},
+				{
+					"name":"operator",
+					"typeValue":{
+						"type":"simple",
+						"typeValue":"string",
+					},
+					"comment":null,
+					"jaxrs":"QUERY",
+				},
+				{
+					"name":"rankoption",
+					"typeValue":{
+						"type":"simple",
+						"typeValue":"string",
+					},
+					"comment":null,
+					"jaxrs":"QUERY",
+				},
+			],
+			"BODY":[
+			],
+			"HEADER":[
+			],
+			"COOKIE":[
+			],
+			"FORM":[
+			],
+			"MATRIX":[
+			],
+		},
+	},
+	{
+		"beschrijving":"",
+		"url":"/recommendation/{shortname}",
+		"http":"PUT",
+		"title":null,
+		"tags":[
+			
+		],
+		"authors":[
+			
+		],
+		"compressed":false,
+		"deprecated":false,
+		"consumes":[
+		],
+		"produces":[
+			"application/json",
+		],
+		"roles":[
+		],
+		"rolesAllowed":null,
+		"permitAll":false,
+		"output":{
+			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"],
+			"comment":null,
+		},
+		"statusCodes":[
+		],
+		"hash":"-1144457602",
 		"responseHeaders":{
 			"headers":[
 			],
@@ -1216,7 +1408,7 @@ com.qmino.miredot.restApiSource.interfaces = [
 		"inputs":{
 			"PATH":[
 				{
-					"name":"term",
+					"name":"shortname",
 					"typeValue":{
 						"type":"simple",
 						"typeValue":"string",
@@ -1241,7 +1433,7 @@ com.qmino.miredot.restApiSource.interfaces = [
 	},
 	{
 		"beschrijving":"",
-		"url":"/datasetdetail/status",
+		"url":"/hrecommendation/status",
 		"http":"GET",
 		"title":null,
 		"tags":[
@@ -1267,7 +1459,7 @@ com.qmino.miredot.restApiSource.interfaces = [
 		},
 		"statusCodes":[
 		],
-		"hash":"118566076",
+		"hash":"623738586",
 		"responseHeaders":{
 			"headers":[
 			],
@@ -1319,7 +1511,7 @@ com.qmino.miredot.restApiSource.interfaces = [
 		},
 		"statusCodes":[
 		],
-		"hash":"2073030370",
+		"hash":"1989735971",
 		"responseHeaders":{
 			"headers":[
 			],
@@ -1345,7 +1537,7 @@ com.qmino.miredot.restApiSource.interfaces = [
 	},
 	{
 		"beschrijving":"",
-		"url":"/hrecommendation/status",
+		"url":"/vocabulary/status",
 		"http":"GET",
 		"title":null,
 		"tags":[
@@ -1371,7 +1563,59 @@ com.qmino.miredot.restApiSource.interfaces = [
 		},
 		"statusCodes":[
 		],
-		"hash":"-582566567",
+		"hash":"-2033994945",
+		"responseHeaders":{
+			"headers":[
+			],
+			"customHeaders":[
+			],
+		},
+		"inputs":{
+			"PATH":[
+			],
+			"QUERY":[
+			],
+			"BODY":[
+			],
+			"HEADER":[
+			],
+			"COOKIE":[
+			],
+			"FORM":[
+			],
+			"MATRIX":[
+			],
+		},
+	},
+	{
+		"beschrijving":"",
+		"url":"/recommendation/status",
+		"http":"GET",
+		"title":null,
+		"tags":[
+			
+		],
+		"authors":[
+			
+		],
+		"compressed":false,
+		"deprecated":false,
+		"consumes":[
+		],
+		"produces":[
+			"text/html",
+		],
+		"roles":[
+		],
+		"rolesAllowed":null,
+		"permitAll":false,
+		"output":{
+			"typeValue":com.qmino.miredot.restApiSource.tos["javax_ws_rs_core_Response_out"],
+			"comment":null,
+		},
+		"statusCodes":[
+		],
+		"hash":"2079024182",
 		"responseHeaders":{
 			"headers":[
 			],
@@ -1401,8 +1645,53 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_SUMMARY",
 		"description":"Missing summary tag",
 		"failedBuild":"false",
-		"interface":"1971134413",
-		"implementationClass":"esiptestbed.mudrod.services.autocomplete.AutoCompleteResource",
+		"interface":"-100538336",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchVocabResource",
+		"implementationMethod":"searchVocabulary",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
+		"description":"Missing interface documentation",
+		"failedBuild":"false",
+		"interface":"-100538336",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchVocabResource",
+		"implementationMethod":"searchVocabulary",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing parameter documentation",
+		"failedBuild":"false",
+		"interface":"-100538336",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchVocabResource",
+		"implementationMethod":"searchVocabulary",
+		"entity":"query",
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing return type documentation",
+		"failedBuild":"false",
+		"interface":"-100538336",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchVocabResource",
+		"implementationMethod":"searchVocabulary",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_AUTHORS",
+		"description":"No author(s) specified for interface.",
+		"failedBuild":"false",
+		"interface":"-100538336",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchVocabResource",
+		"implementationMethod":"searchVocabulary",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_SUMMARY",
+		"description":"Missing summary tag",
+		"failedBuild":"false",
+		"interface":"592349676",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.ontology.OntologyResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1410,8 +1699,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
 		"description":"Missing interface documentation",
 		"failedBuild":"false",
-		"interface":"1971134413",
-		"implementationClass":"esiptestbed.mudrod.services.autocomplete.AutoCompleteResource",
+		"interface":"592349676",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.ontology.OntologyResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1419,8 +1708,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
 		"description":"Missing return type documentation",
 		"failedBuild":"false",
-		"interface":"1971134413",
-		"implementationClass":"esiptestbed.mudrod.services.autocomplete.AutoCompleteResource",
+		"interface":"592349676",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.ontology.OntologyResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1428,8 +1717,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_AUTHORS",
 		"description":"No author(s) specified for interface.",
 		"failedBuild":"false",
-		"interface":"1971134413",
-		"implementationClass":"esiptestbed.mudrod.services.autocomplete.AutoCompleteResource",
+		"interface":"592349676",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.ontology.OntologyResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1437,44 +1726,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_SUMMARY",
 		"description":"Missing summary tag",
 		"failedBuild":"false",
-		"interface":"1045417918",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchVocabResource",
-		"implementationMethod":"status",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
-		"description":"Missing interface documentation",
-		"failedBuild":"false",
-		"interface":"1045417918",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchVocabResource",
-		"implementationMethod":"status",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
-		"description":"Missing return type documentation",
-		"failedBuild":"false",
-		"interface":"1045417918",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchVocabResource",
-		"implementationMethod":"status",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_AUTHORS",
-		"description":"No author(s) specified for interface.",
-		"failedBuild":"false",
-		"interface":"1045417918",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchVocabResource",
-		"implementationMethod":"status",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_SUMMARY",
-		"description":"Missing summary tag",
-		"failedBuild":"false",
-		"interface":"1065248765",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.RecomDatasetsResource",
+		"interface":"1325521442",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.HybridRecomDatasetsResource",
 		"implementationMethod":"hybridRecommendation",
 		"entity":null,
 	},
@@ -1482,8 +1735,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
 		"description":"Missing interface documentation",
 		"failedBuild":"false",
-		"interface":"1065248765",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.RecomDatasetsResource",
+		"interface":"1325521442",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.HybridRecomDatasetsResource",
 		"implementationMethod":"hybridRecommendation",
 		"entity":null,
 	},
@@ -1491,8 +1744,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
 		"description":"Missing parameter documentation",
 		"failedBuild":"false",
-		"interface":"1065248765",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.RecomDatasetsResource",
+		"interface":"1325521442",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.HybridRecomDatasetsResource",
 		"implementationMethod":"hybridRecommendation",
 		"entity":"shortname",
 	},
@@ -1500,8 +1753,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
 		"description":"Missing return type documentation",
 		"failedBuild":"false",
-		"interface":"1065248765",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.RecomDatasetsResource",
+		"interface":"1325521442",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.HybridRecomDatasetsResource",
 		"implementationMethod":"hybridRecommendation",
 		"entity":null,
 	},
@@ -1509,8 +1762,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_AUTHORS",
 		"description":"No author(s) specified for interface.",
 		"failedBuild":"false",
-		"interface":"1065248765",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.RecomDatasetsResource",
+		"interface":"1325521442",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.HybridRecomDatasetsResource",
 		"implementationMethod":"hybridRecommendation",
 		"entity":null,
 	},
@@ -1518,8 +1771,332 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_SUMMARY",
 		"description":"Missing summary tag",
 		"failedBuild":"false",
-		"interface":"1431695457",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.HybridRecomDatasetsResource",
+		"interface":"-290428490",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.ontology.OntologyResource",
+		"implementationMethod":"getOntologySubclasses",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
+		"description":"Missing interface documentation",
+		"failedBuild":"false",
+		"interface":"-290428490",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.ontology.OntologyResource",
+		"implementationMethod":"getOntologySubclasses",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing parameter documentation",
+		"failedBuild":"false",
+		"interface":"-290428490",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.ontology.OntologyResource",
+		"implementationMethod":"getOntologySubclasses",
+		"entity":"query",
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing return type documentation",
+		"failedBuild":"false",
+		"interface":"-290428490",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.ontology.OntologyResource",
+		"implementationMethod":"getOntologySubclasses",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_AUTHORS",
+		"description":"No author(s) specified for interface.",
+		"failedBuild":"false",
+		"interface":"-290428490",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.ontology.OntologyResource",
+		"implementationMethod":"getOntologySubclasses",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_SUMMARY",
+		"description":"Missing summary tag",
+		"failedBuild":"false",
+		"interface":"1491826988",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.autocomplete.AutoCompleteResource",
+		"implementationMethod":"status",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
+		"description":"Missing interface documentation",
+		"failedBuild":"false",
+		"interface":"1491826988",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.autocomplete.AutoCompleteResource",
+		"implementationMethod":"status",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing return type documentation",
+		"failedBuild":"false",
+		"interface":"1491826988",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.autocomplete.AutoCompleteResource",
+		"implementationMethod":"status",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_AUTHORS",
+		"description":"No author(s) specified for interface.",
+		"failedBuild":"false",
+		"interface":"1491826988",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.autocomplete.AutoCompleteResource",
+		"implementationMethod":"status",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_SUMMARY",
+		"description":"Missing summary tag",
+		"failedBuild":"false",
+		"interface":"1333917288",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.ontology.OntologyResource",
+		"implementationMethod":"getOntologySynonyms",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
+		"description":"Missing interface documentation",
+		"failedBuild":"false",
+		"interface":"1333917288",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.ontology.OntologyResource",
+		"implementationMethod":"getOntologySynonyms",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing parameter documentation",
+		"failedBuild":"false",
+		"interface":"1333917288",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.ontology.OntologyResource",
+		"implementationMethod":"getOntologySynonyms",
+		"entity":"query",
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing return type documentation",
+		"failedBuild":"false",
+		"interface":"1333917288",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.ontology.OntologyResource",
+		"implementationMethod":"getOntologySynonyms",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_AUTHORS",
+		"description":"No author(s) specified for interface.",
+		"failedBuild":"false",
+		"interface":"1333917288",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.ontology.OntologyResource",
+		"implementationMethod":"getOntologySynonyms",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_AUTHORS",
+		"description":"No author(s) specified for interface.",
+		"failedBuild":"false",
+		"interface":"-1855062211",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchDatasetDetailResource",
+		"implementationMethod":"status",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_SUMMARY",
+		"description":"Missing summary tag",
+		"failedBuild":"false",
+		"interface":"577270683",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchMetadataResource",
+		"implementationMethod":"status",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
+		"description":"Missing interface documentation",
+		"failedBuild":"false",
+		"interface":"577270683",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchMetadataResource",
+		"implementationMethod":"status",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing return type documentation",
+		"failedBuild":"false",
+		"interface":"577270683",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchMetadataResource",
+		"implementationMethod":"status",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_AUTHORS",
+		"description":"No author(s) specified for interface.",
+		"failedBuild":"false",
+		"interface":"577270683",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchMetadataResource",
+		"implementationMethod":"status",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_SUMMARY",
+		"description":"Missing summary tag",
+		"failedBuild":"false",
+		"interface":"-2095899609",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.autocomplete.AutoCompleteResource",
+		"implementationMethod":"autoComplete",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
+		"description":"Missing interface documentation",
+		"failedBuild":"false",
+		"interface":"-2095899609",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.autocomplete.AutoCompleteResource",
+		"implementationMethod":"autoComplete",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing parameter documentation",
+		"failedBuild":"false",
+		"interface":"-2095899609",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.autocomplete.AutoCompleteResource",
+		"implementationMethod":"autoComplete",
+		"entity":"term",
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing return type documentation",
+		"failedBuild":"false",
+		"interface":"-2095899609",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.autocomplete.AutoCompleteResource",
+		"implementationMethod":"autoComplete",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_AUTHORS",
+		"description":"No author(s) specified for interface.",
+		"failedBuild":"false",
+		"interface":"-2095899609",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.autocomplete.AutoCompleteResource",
+		"implementationMethod":"autoComplete",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_SUMMARY",
+		"description":"Missing summary tag",
+		"failedBuild":"false",
+		"interface":"-74512613",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchDatasetDetailResource",
+		"implementationMethod":"searchDatasetDetail",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
+		"description":"Missing interface documentation",
+		"failedBuild":"false",
+		"interface":"-74512613",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchDatasetDetailResource",
+		"implementationMethod":"searchDatasetDetail",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing parameter documentation",
+		"failedBuild":"false",
+		"interface":"-74512613",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchDatasetDetailResource",
+		"implementationMethod":"searchDatasetDetail",
+		"entity":"shortname",
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing return type documentation",
+		"failedBuild":"false",
+		"interface":"-74512613",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchDatasetDetailResource",
+		"implementationMethod":"searchDatasetDetail",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_AUTHORS",
+		"description":"No author(s) specified for interface.",
+		"failedBuild":"false",
+		"interface":"-74512613",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchDatasetDetailResource",
+		"implementationMethod":"searchDatasetDetail",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_SUMMARY",
+		"description":"Missing summary tag",
+		"failedBuild":"false",
+		"interface":"1069133007",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchMetadataResource",
+		"implementationMethod":"searchMetadata",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
+		"description":"Missing interface documentation",
+		"failedBuild":"false",
+		"interface":"1069133007",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchMetadataResource",
+		"implementationMethod":"searchMetadata",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing parameter documentation",
+		"failedBuild":"false",
+		"interface":"1069133007",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchMetadataResource",
+		"implementationMethod":"searchMetadata",
+		"entity":"query",
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing parameter documentation",
+		"failedBuild":"false",
+		"interface":"1069133007",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchMetadataResource",
+		"implementationMethod":"searchMetadata",
+		"entity":"operator",
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing parameter documentation",
+		"failedBuild":"false",
+		"interface":"1069133007",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchMetadataResource",
+		"implementationMethod":"searchMetadata",
+		"entity":"rankoption",
+	},
+	{
+		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
+		"description":"Missing return type documentation",
+		"failedBuild":"false",
+		"interface":"1069133007",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchMetadataResource",
+		"implementationMethod":"searchMetadata",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_AUTHORS",
+		"description":"No author(s) specified for interface.",
+		"failedBuild":"false",
+		"interface":"1069133007",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchMetadataResource",
+		"implementationMethod":"searchMetadata",
+		"entity":null,
+	},
+	{
+		"category":"JAVADOC_MISSING_SUMMARY",
+		"description":"Missing summary tag",
+		"failedBuild":"false",
+		"interface":"-1144457602",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.RecomDatasetsResource",
 		"implementationMethod":"hybridRecommendation",
 		"entity":null,
 	},
@@ -1527,8 +2104,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
 		"description":"Missing interface documentation",
 		"failedBuild":"false",
-		"interface":"1431695457",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.HybridRecomDatasetsResource",
+		"interface":"-1144457602",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.RecomDatasetsResource",
 		"implementationMethod":"hybridRecommendation",
 		"entity":null,
 	},
@@ -1536,8 +2113,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
 		"description":"Missing parameter documentation",
 		"failedBuild":"false",
-		"interface":"1431695457",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.HybridRecomDatasetsResource",
+		"interface":"-1144457602",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.RecomDatasetsResource",
 		"implementationMethod":"hybridRecommendation",
 		"entity":"shortname",
 	},
@@ -1545,8 +2122,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
 		"description":"Missing return type documentation",
 		"failedBuild":"false",
-		"interface":"1431695457",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.HybridRecomDatasetsResource",
+		"interface":"-1144457602",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.RecomDatasetsResource",
 		"implementationMethod":"hybridRecommendation",
 		"entity":null,
 	},
@@ -1554,8 +2131,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_AUTHORS",
 		"description":"No author(s) specified for interface.",
 		"failedBuild":"false",
-		"interface":"1431695457",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.HybridRecomDatasetsResource",
+		"interface":"-1144457602",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.RecomDatasetsResource",
 		"implementationMethod":"hybridRecommendation",
 		"entity":null,
 	},
@@ -1563,161 +2140,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_SUMMARY",
 		"description":"Missing summary tag",
 		"failedBuild":"false",
-		"interface":"1738167263",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchVocabResource",
-		"implementationMethod":"searchVocabulary",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
-		"description":"Missing interface documentation",
-		"failedBuild":"false",
-		"interface":"1738167263",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchVocabResource",
-		"implementationMethod":"searchVocabulary",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
-		"description":"Missing parameter documentation",
-		"failedBuild":"false",
-		"interface":"1738167263",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchVocabResource",
-		"implementationMethod":"searchVocabulary",
-		"entity":"query",
-	},
-	{
-		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
-		"description":"Missing return type documentation",
-		"failedBuild":"false",
-		"interface":"1738167263",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchVocabResource",
-		"implementationMethod":"searchVocabulary",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_EXCEPTION_DOCUMENTATION",
-		"description":"Exception thrown by method has no comment",
-		"failedBuild":"false",
-		"interface":"1738167263",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchVocabResource",
-		"implementationMethod":"searchVocabulary",
-		"entity":"java.io.IOException",
-	},
-	{
-		"category":"JAVADOC_MISSING_EXCEPTION_DOCUMENTATION",
-		"description":"Exception thrown by method has no comment",
-		"failedBuild":"false",
-		"interface":"1738167263",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchVocabResource",
-		"implementationMethod":"searchVocabulary",
-		"entity":"javax.servlet.ServletException",
-	},
-	{
-		"category":"JAVADOC_MISSING_AUTHORS",
-		"description":"No author(s) specified for interface.",
-		"failedBuild":"false",
-		"interface":"1738167263",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchVocabResource",
-		"implementationMethod":"searchVocabulary",
-		"entity":null,
-	},
-	{
-		"category":"JAXRS_MISSING_PATH_PARAM",
-		"description":"A @PathParam is used in the method signature, but not found in the service URL",
-		"failedBuild":"false",
-		"interface":"1738167263",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchVocabResource",
-		"implementationMethod":"searchVocabulary",
-		"entity":"query",
-	},
-	{
-		"category":"REST_UNMAPPED_EXCEPTION",
-		"description":"Exception is thrown by interface specification, but is not mapped in the MireDot configuration. As such, the return errorcode can not be documented properly.",
-		"failedBuild":"false",
-		"interface":"1738167263",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchVocabResource",
-		"implementationMethod":"searchVocabulary",
-		"entity":"java.io.IOException",
-	},
-	{
-		"category":"REST_UNMAPPED_EXCEPTION",
-		"description":"Exception is thrown by interface specification, but is not mapped in the MireDot configuration. As such, the return errorcode can not be documented properly.",
-		"failedBuild":"false",
-		"interface":"1738167263",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchVocabResource",
-		"implementationMethod":"searchVocabulary",
-		"entity":"javax.servlet.ServletException",
-	},
-	{
-		"category":"JAVADOC_MISSING_SUMMARY",
-		"description":"Missing summary tag",
-		"failedBuild":"false",
-		"interface":"708588683",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchMetadataResource",
-		"implementationMethod":"searchMetadata",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
-		"description":"Missing interface documentation",
-		"failedBuild":"false",
-		"interface":"708588683",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchMetadataResource",
-		"implementationMethod":"searchMetadata",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
-		"description":"Missing parameter documentation",
-		"failedBuild":"false",
-		"interface":"708588683",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchMetadataResource",
-		"implementationMethod":"searchMetadata",
-		"entity":"query",
-	},
-	{
-		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
-		"description":"Missing parameter documentation",
-		"failedBuild":"false",
-		"interface":"708588683",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchMetadataResource",
-		"implementationMethod":"searchMetadata",
-		"entity":"term",
-	},
-	{
-		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
-		"description":"Missing return type documentation",
-		"failedBuild":"false",
-		"interface":"708588683",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchMetadataResource",
-		"implementationMethod":"searchMetadata",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_AUTHORS",
-		"description":"No author(s) specified for interface.",
-		"failedBuild":"false",
-		"interface":"708588683",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchMetadataResource",
-		"implementationMethod":"searchMetadata",
-		"entity":null,
-	},
-	{
-		"category":"JAXRS_MISSING_PATH_PARAM",
-		"description":"A @PathParam is used in the method signature, but not found in the service URL",
-		"failedBuild":"false",
-		"interface":"708588683",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchMetadataResource",
-		"implementationMethod":"searchMetadata",
-		"entity":"term",
-	},
-	{
-		"category":"JAVADOC_MISSING_SUMMARY",
-		"description":"Missing summary tag",
-		"failedBuild":"false",
-		"interface":"360263157",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.RecomDatasetsResource",
+		"interface":"623738586",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.HybridRecomDatasetsResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1725,8 +2149,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
 		"description":"Missing interface documentation",
 		"failedBuild":"false",
-		"interface":"360263157",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.RecomDatasetsResource",
+		"interface":"623738586",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.HybridRecomDatasetsResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1734,8 +2158,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
 		"description":"Missing return type documentation",
 		"failedBuild":"false",
-		"interface":"360263157",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.RecomDatasetsResource",
+		"interface":"623738586",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.HybridRecomDatasetsResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1743,8 +2167,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_AUTHORS",
 		"description":"No author(s) specified for interface.",
 		"failedBuild":"false",
-		"interface":"360263157",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.RecomDatasetsResource",
+		"interface":"623738586",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.HybridRecomDatasetsResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1752,8 +2176,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_SUMMARY",
 		"description":"Missing summary tag",
 		"failedBuild":"false",
-		"interface":"-1135570244",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchMetadataResource",
+		"interface":"1989735971",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SessionDetailResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1761,8 +2185,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
 		"description":"Missing interface documentation",
 		"failedBuild":"false",
-		"interface":"-1135570244",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchMetadataResource",
+		"interface":"1989735971",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SessionDetailResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1770,8 +2194,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
 		"description":"Missing return type documentation",
 		"failedBuild":"false",
-		"interface":"-1135570244",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchMetadataResource",
+		"interface":"1989735971",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SessionDetailResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1779,8 +2203,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_AUTHORS",
 		"description":"No author(s) specified for interface.",
 		"failedBuild":"false",
-		"interface":"-1135570244",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchMetadataResource",
+		"interface":"1989735971",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SessionDetailResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1788,53 +2212,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_SUMMARY",
 		"description":"Missing summary tag",
 		"failedBuild":"false",
-		"interface":"1064674312",
-		"implementationClass":"esiptestbed.mudrod.services.autocomplete.AutoCompleteResource",
-		"implementationMethod":"autoComplete",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
-		"description":"Missing interface documentation",
-		"failedBuild":"false",
-		"interface":"1064674312",
-		"implementationClass":"esiptestbed.mudrod.services.autocomplete.AutoCompleteResource",
-		"implementationMethod":"autoComplete",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
-		"description":"Missing parameter documentation",
-		"failedBuild":"false",
-		"interface":"1064674312",
-		"implementationClass":"esiptestbed.mudrod.services.autocomplete.AutoCompleteResource",
-		"implementationMethod":"autoComplete",
-		"entity":"term",
-	},
-	{
-		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
-		"description":"Missing return type documentation",
-		"failedBuild":"false",
-		"interface":"1064674312",
-		"implementationClass":"esiptestbed.mudrod.services.autocomplete.AutoCompleteResource",
-		"implementationMethod":"autoComplete",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_AUTHORS",
-		"description":"No author(s) specified for interface.",
-		"failedBuild":"false",
-		"interface":"1064674312",
-		"implementationClass":"esiptestbed.mudrod.services.autocomplete.AutoCompleteResource",
-		"implementationMethod":"autoComplete",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_SUMMARY",
-		"description":"Missing summary tag",
-		"failedBuild":"false",
-		"interface":"118566076",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchDatasetDetailResource",
+		"interface":"-2033994945",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchVocabResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1842,8 +2221,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
 		"description":"Missing interface documentation",
 		"failedBuild":"false",
-		"interface":"118566076",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchDatasetDetailResource",
+		"interface":"-2033994945",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchVocabResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1851,8 +2230,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
 		"description":"Missing return type documentation",
 		"failedBuild":"false",
-		"interface":"118566076",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchDatasetDetailResource",
+		"interface":"-2033994945",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchVocabResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1860,8 +2239,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_AUTHORS",
 		"description":"No author(s) specified for interface.",
 		"failedBuild":"false",
-		"interface":"118566076",
-		"implementationClass":"esiptestbed.mudrod.services.search.SearchDatasetDetailResource",
+		"interface":"-2033994945",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.search.SearchVocabResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1869,8 +2248,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_SUMMARY",
 		"description":"Missing summary tag",
 		"failedBuild":"false",
-		"interface":"2073030370",
-		"implementationClass":"esiptestbed.mudrod.services.search.SessionDetailResource",
+		"interface":"2079024182",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.RecomDatasetsResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1878,8 +2257,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
 		"description":"Missing interface documentation",
 		"failedBuild":"false",
-		"interface":"2073030370",
-		"implementationClass":"esiptestbed.mudrod.services.search.SessionDetailResource",
+		"interface":"2079024182",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.RecomDatasetsResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1887,8 +2266,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
 		"description":"Missing return type documentation",
 		"failedBuild":"false",
-		"interface":"2073030370",
-		"implementationClass":"esiptestbed.mudrod.services.search.SessionDetailResource",
+		"interface":"2079024182",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.RecomDatasetsResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},
@@ -1896,44 +2275,8 @@ com.qmino.miredot.projectWarnings = [
 		"category":"JAVADOC_MISSING_AUTHORS",
 		"description":"No author(s) specified for interface.",
 		"failedBuild":"false",
-		"interface":"2073030370",
-		"implementationClass":"esiptestbed.mudrod.services.search.SessionDetailResource",
-		"implementationMethod":"status",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_SUMMARY",
-		"description":"Missing summary tag",
-		"failedBuild":"false",
-		"interface":"-582566567",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.HybridRecomDatasetsResource",
-		"implementationMethod":"status",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_INTERFACEDOCUMENTATION",
-		"description":"Missing interface documentation",
-		"failedBuild":"false",
-		"interface":"-582566567",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.HybridRecomDatasetsResource",
-		"implementationMethod":"status",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_PARAMETER_DOCUMENTATION",
-		"description":"Missing return type documentation",
-		"failedBuild":"false",
-		"interface":"-582566567",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.HybridRecomDatasetsResource",
-		"implementationMethod":"status",
-		"entity":null,
-	},
-	{
-		"category":"JAVADOC_MISSING_AUTHORS",
-		"description":"No author(s) specified for interface.",
-		"failedBuild":"false",
-		"interface":"-582566567",
-		"implementationClass":"esiptestbed.mudrod.services.recommendation.HybridRecomDatasetsResource",
+		"interface":"2079024182",
+		"implementationClass":"gov.nasa.jpl.mudrod.services.recommendation.RecomDatasetsResource",
 		"implementationMethod":"status",
 		"entity":null,
 	},

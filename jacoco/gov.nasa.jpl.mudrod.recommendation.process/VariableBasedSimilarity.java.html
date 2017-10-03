@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VariableBasedSimilarity.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.recommendation.process</a> &gt; <span class="el_source">VariableBasedSimilarity.java</span></div><h1>VariableBasedSimilarity.java</h1><pre class="source lang-java linenums">package gov.nasa.jpl.mudrod.recommendation.process;
+
+import gov.nasa.jpl.mudrod.discoveryengine.DiscoveryStepAbstract;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.text.DecimalFormat;
+import java.util.*;
+
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+
+public class VariableBasedSimilarity extends DiscoveryStepAbstract implements Serializable {
+
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+
+<span class="nc" id="L30">  private static final Logger LOG = LoggerFactory.getLogger(VariableBasedSimilarity.class);</span>
+
+<span class="nc" id="L32">  private DecimalFormat df = new DecimalFormat(&quot;#.000&quot;);</span>
+  // a map from variable to its type
+  public Map&lt;String, Integer&gt; variableTypes;
+  public Map&lt;String, Integer&gt; variableWeights;
+
+<span class="nc" id="L37">  private static final Integer VAR_SPATIAL = 1;</span>
+<span class="nc" id="L38">  private static final Integer VAR_TEMPORAL = 2;</span>
+<span class="nc" id="L39">  private static final Integer VAR_CATEGORICAL = 3;</span>
+<span class="nc" id="L40">  private static final Integer VAR_ORDINAL = 4;</span>
+
+  // index name
+  private String indexName;
+  // type name of metadata in ES
+  private String metadataType;
+  private String variableSimType;
+
+  /**
+   * Creates a new instance of OHEncoder.
+   *
+   * @param props the Mudrod configuration
+   * @param es    an instantiated {@link ESDriver}
+   * @param spark an instantiated {@link SparkDriver}
+   */
+  public VariableBasedSimilarity(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L56">    super(props, es, spark);</span>
+
+<span class="nc" id="L58">    indexName = props.getProperty(&quot;indexName&quot;);</span>
+<span class="nc" id="L59">    metadataType = props.getProperty(&quot;recom_metadataType&quot;);</span>
+<span class="nc" id="L60">    variableSimType = props.getProperty(&quot;metadataCodeSimType&quot;);</span>
+<span class="nc" id="L61">    this.inital();</span>
+<span class="nc" id="L62">  }</span>
+
+  @Override
+  public Object execute() {
+<span class="nc" id="L66">    LOG.info(&quot;*****************calculating metadata variables based similarity starts******************&quot;);</span>
+<span class="nc" id="L67">    startTime = System.currentTimeMillis();</span>
+<span class="nc" id="L68">    es.deleteType(indexName, variableSimType);</span>
+<span class="nc" id="L69">    addMapping(es, indexName, variableSimType);</span>
+
+<span class="nc" id="L71">    VariableBasedSimilarity(es);</span>
+<span class="nc" id="L72">    es.refreshIndex();</span>
+<span class="nc" id="L73">    normalizeVariableWeight(es);</span>
+<span class="nc" id="L74">    es.refreshIndex();</span>
+<span class="nc" id="L75">    endTime = System.currentTimeMillis();</span>
+<span class="nc" id="L76">    LOG.info(&quot;*****************calculating metadata variables based similarity ends******************Took {}s&quot;, (endTime - startTime) / 1000);</span>
+<span class="nc" id="L77">    return null;</span>
+  }
+
+  @Override
+  public Object execute(Object o) {
+<span class="nc" id="L82">    return null;</span>
+  }
+
+  public void inital() {
+<span class="nc" id="L86">    this.initVariableType();</span>
+<span class="nc" id="L87">    this.initVariableWeight();</span>
+<span class="nc" id="L88">  }</span>
+
+  private void initVariableType() {
+<span class="nc" id="L91">    variableTypes = new HashMap&lt;&gt;();</span>
+
+<span class="nc" id="L93">    variableTypes.put(&quot;DatasetParameter-Variable&quot;, VAR_CATEGORICAL);</span>
+<span class="nc" id="L94">    variableTypes.put(&quot;DatasetRegion-Region&quot;, VAR_CATEGORICAL);</span>
+<span class="nc" id="L95">    variableTypes.put(&quot;Dataset-ProjectionType&quot;, VAR_CATEGORICAL);</span>
+<span class="nc" id="L96">    variableTypes.put(&quot;Dataset-ProcessingLevel&quot;, VAR_CATEGORICAL);</span>
+<span class="nc" id="L97">    variableTypes.put(&quot;DatasetParameter-Topic&quot;, VAR_CATEGORICAL);</span>
+<span class="nc" id="L98">    variableTypes.put(&quot;DatasetParameter-Term&quot;, VAR_CATEGORICAL);</span>
+<span class="nc" id="L99">    variableTypes.put(&quot;DatasetParameter-Category&quot;, VAR_CATEGORICAL);</span>
+<span class="nc" id="L100">    variableTypes.put(&quot;DatasetPolicy-DataFormat&quot;, VAR_CATEGORICAL);</span>
+<span class="nc" id="L101">    variableTypes.put(&quot;Collection-ShortName&quot;, VAR_CATEGORICAL);</span>
+<span class="nc" id="L102">    variableTypes.put(&quot;DatasetSource-Source-Type&quot;, VAR_CATEGORICAL);</span>
+<span class="nc" id="L103">    variableTypes.put(&quot;DatasetSource-Source-ShortName&quot;, VAR_CATEGORICAL);</span>
+<span class="nc" id="L104">    variableTypes.put(&quot;DatasetSource-Sensor-ShortName&quot;, VAR_CATEGORICAL);</span>
+<span class="nc" id="L105">    variableTypes.put(&quot;DatasetPolicy-Availability&quot;, VAR_CATEGORICAL);</span>
+<span class="nc" id="L106">    variableTypes.put(&quot;Dataset-Provider-ShortName&quot;, VAR_CATEGORICAL);</span>
+
+<span class="nc" id="L108">    variableTypes.put(&quot;Dataset-Derivative-ProcessingLevel&quot;, VAR_ORDINAL);</span>
+<span class="nc" id="L109">    variableTypes.put(&quot;Dataset-Derivative-TemporalResolution&quot;, VAR_ORDINAL);</span>
+<span class="nc" id="L110">    variableTypes.put(&quot;Dataset-Derivative-SpatialResolution&quot;, VAR_ORDINAL);</span>
+<span class="nc" id="L111">  }</span>
+
+  private void initVariableWeight() {
+<span class="nc" id="L114">    variableWeights = new HashMap&lt;&gt;();</span>
+
+<span class="nc" id="L116">    variableWeights.put(&quot;Dataset-Derivative-ProcessingLevel&quot;, 5);</span>
+<span class="nc" id="L117">    variableWeights.put(&quot;DatasetParameter-Category&quot;, 5);</span>
+<span class="nc" id="L118">    variableWeights.put(&quot;DatasetParameter-Variable&quot;, 5);</span>
+<span class="nc" id="L119">    variableWeights.put(&quot;DatasetSource-Sensor-ShortName&quot;, 5);</span>
+
+<span class="nc" id="L121">    variableWeights.put(&quot;DatasetPolicy-Availability&quot;, 4);</span>
+<span class="nc" id="L122">    variableWeights.put(&quot;DatasetRegion-Region&quot;, 4);</span>
+<span class="nc" id="L123">    variableWeights.put(&quot;DatasetSource-Source-Type&quot;, 4);</span>
+<span class="nc" id="L124">    variableWeights.put(&quot;DatasetSource-Source-ShortName&quot;, 4);</span>
+<span class="nc" id="L125">    variableWeights.put(&quot;DatasetParameter-Term&quot;, 4);</span>
+<span class="nc" id="L126">    variableWeights.put(&quot;DatasetPolicy-DataFormat&quot;, 4);</span>
+<span class="nc" id="L127">    variableWeights.put(&quot;Dataset-Derivative-SpatialResolution&quot;, 4);</span>
+<span class="nc" id="L128">    variableWeights.put(&quot;Temporal_Covergae&quot;, 4);</span>
+
+<span class="nc" id="L130">    variableWeights.put(&quot;DatasetParameter-Topic&quot;, 3);</span>
+<span class="nc" id="L131">    variableWeights.put(&quot;Collection-ShortName&quot;, 3);</span>
+<span class="nc" id="L132">    variableWeights.put(&quot;Dataset-Derivative-TemporalResolution&quot;, 3);</span>
+<span class="nc" id="L133">    variableWeights.put(&quot;Spatial_Covergae&quot;, 3);</span>
+
+<span class="nc" id="L135">    variableWeights.put(&quot;Dataset-ProjectionType&quot;, 1);</span>
+<span class="nc" id="L136">    variableWeights.put(&quot;Dataset-Provider-ShortName&quot;, 1);</span>
+<span class="nc" id="L137">  }</span>
+
+  public void VariableBasedSimilarity(ESDriver es) {
+
+<span class="nc" id="L141">    es.createBulkProcessor();</span>
+
+<span class="nc" id="L143">    List&lt;Map&lt;String, Object&gt;&gt; metadatas = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L144">    SearchResponse scrollResp = es.getClient().prepareSearch(indexName).setTypes(metadataType).setScroll(new TimeValue(60000)).setQuery(QueryBuilders.matchAllQuery()).setSize(100).execute()</span>
+<span class="nc" id="L145">        .actionGet();</span>
+    while (true) {
+<span class="nc bnc" id="L147" title="All 2 branches missed.">      for (SearchHit hit : scrollResp.getHits().getHits()) {</span>
+<span class="nc" id="L148">        Map&lt;String, Object&gt; metadataA = hit.getSource();</span>
+<span class="nc" id="L149">        metadatas.add(metadataA);</span>
+      }
+
+<span class="nc" id="L152">      scrollResp = es.getClient().prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(600000)).execute().actionGet();</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">      if (scrollResp.getHits().getHits().length == 0) {</span>
+<span class="nc" id="L154">        break;</span>
+      }
+    }
+
+<span class="nc" id="L158">    int size = metadatas.size();</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">    for (int i = 0; i &lt; size; i++) {</span>
+<span class="nc" id="L160">      Map&lt;String, Object&gt; metadataA = metadatas.get(i);</span>
+<span class="nc" id="L161">      String shortNameA = (String) metadataA.get(&quot;Dataset-ShortName&quot;);</span>
+
+<span class="nc bnc" id="L163" title="All 2 branches missed.">      for (int j = 0; j &lt; size; j++) {</span>
+<span class="nc" id="L164">        metadataA = metadatas.get(i);</span>
+<span class="nc" id="L165">        Map&lt;String, Object&gt; metadataB = metadatas.get(j);</span>
+<span class="nc" id="L166">        String shortNameB = (String) metadataB.get(&quot;Dataset-ShortName&quot;);</span>
+
+        try {
+<span class="nc" id="L169">          XContentBuilder contentBuilder = jsonBuilder().startObject();</span>
+<span class="nc" id="L170">          contentBuilder.field(&quot;concept_A&quot;, shortNameA);</span>
+<span class="nc" id="L171">          contentBuilder.field(&quot;concept_B&quot;, shortNameB);</span>
+
+          // spatial similarity
+<span class="nc" id="L174">          this.spatialSimilarity(metadataA, metadataB, contentBuilder);</span>
+          // temporal similarity
+<span class="nc" id="L176">          this.temporalSimilarity(metadataA, metadataB, contentBuilder);</span>
+          // categorical variables similarity
+<span class="nc" id="L178">          this.categoricalVariablesSimilarity(metadataA, metadataB, contentBuilder);</span>
+          // ordinal variables similarity
+<span class="nc" id="L180">          this.ordinalVariablesSimilarity(metadataA, metadataB, contentBuilder);</span>
+
+<span class="nc" id="L182">          contentBuilder.endObject();</span>
+
+<span class="nc" id="L184">          IndexRequest ir = new IndexRequest(indexName, variableSimType).source(contentBuilder);</span>
+<span class="nc" id="L185">          es.getBulkProcessor().add(ir);</span>
+
+<span class="nc" id="L187">        } catch (IOException e1) {</span>
+<span class="nc" id="L188">          e1.printStackTrace();</span>
+<span class="nc" id="L189">        }</span>
+
+      }
+    }
+
+<span class="nc" id="L194">    es.destroyBulkProcessor();</span>
+<span class="nc" id="L195">  }</span>
+
+  /*
+   * refer to P. Frontiera, R. Larson, and J. Radke (2008) A comparison of
+     geometric approaches to assessing spatial similarity for GIR.
+     International Journal of Geographical Information Science,
+     22(3)
+   */
+  public void spatialSimilarity(Map&lt;String, Object&gt; metadataA, Map&lt;String, Object&gt; metadataB, XContentBuilder contentBuilder) throws IOException {
+
+<span class="nc" id="L205">    double topA = (double) metadataA.get(&quot;DatasetCoverage-Derivative-NorthLat&quot;);</span>
+<span class="nc" id="L206">    double bottomA = (double) metadataA.get(&quot;DatasetCoverage-Derivative-SouthLat&quot;);</span>
+<span class="nc" id="L207">    double leftA = (double) metadataA.get(&quot;DatasetCoverage-Derivative-WestLon&quot;);</span>
+<span class="nc" id="L208">    double rightA = (double) metadataA.get(&quot;DatasetCoverage-Derivative-EastLon&quot;);</span>
+<span class="nc" id="L209">    double areaA = (double) metadataA.get(&quot;DatasetCoverage-Derivative-Area&quot;);</span>
+
+<span class="nc" id="L211">    double topB = (double) metadataB.get(&quot;DatasetCoverage-Derivative-NorthLat&quot;);</span>
+<span class="nc" id="L212">    double bottomB = (double) metadataB.get(&quot;DatasetCoverage-Derivative-SouthLat&quot;);</span>
+<span class="nc" id="L213">    double leftB = (double) metadataB.get(&quot;DatasetCoverage-Derivative-WestLon&quot;);</span>
+<span class="nc" id="L214">    double rightB = (double) metadataB.get(&quot;DatasetCoverage-Derivative-EastLon&quot;);</span>
+<span class="nc" id="L215">    double areaB = (double) metadataB.get(&quot;DatasetCoverage-Derivative-Area&quot;);</span>
+
+    // Intersect area
+<span class="nc" id="L218">    double xOverlap = Math.max(0, Math.min(rightA, rightB) - Math.max(leftA, leftB));</span>
+<span class="nc" id="L219">    double yOverlap = Math.max(0, Math.min(topA, topB) - Math.max(bottomA, bottomB));</span>
+<span class="nc" id="L220">    double overlapArea = xOverlap * yOverlap;</span>
+
+    // Calculate coverage similarity
+<span class="nc" id="L223">    double similarity = 0.0;</span>
+<span class="nc bnc" id="L224" title="All 4 branches missed.">    if (areaA &gt; 0 &amp;&amp; areaB &gt; 0) {</span>
+<span class="nc" id="L225">      similarity = (overlapArea / areaA + overlapArea / areaB) * 0.5;</span>
+    }
+
+<span class="nc" id="L228">    contentBuilder.field(&quot;Spatial_Covergae_Sim&quot;, similarity);</span>
+<span class="nc" id="L229">  }</span>
+
+  public void temporalSimilarity(Map&lt;String, Object&gt; metadataA, Map&lt;String, Object&gt; metadataB, XContentBuilder contentBuilder) throws IOException {
+
+<span class="nc" id="L233">    double similarity = 0.0;</span>
+<span class="nc" id="L234">    double startTimeA = Double.parseDouble((String) metadataA.get(&quot;Dataset-DatasetCoverage-StartTimeLong&quot;));</span>
+<span class="nc" id="L235">    String endTimeAStr = (String) metadataA.get(&quot;Dataset-DatasetCoverage-StopTimeLong&quot;);</span>
+<span class="nc" id="L236">    double endTimeA = 0.0;</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">    if (&quot;&quot;.equals(endTimeAStr)) {</span>
+<span class="nc" id="L238">      endTimeA = System.currentTimeMillis();</span>
+    } else {
+<span class="nc" id="L240">      endTimeA = Double.parseDouble(endTimeAStr);</span>
+    }
+<span class="nc" id="L242">    double timespanA = endTimeA - startTimeA;</span>
+
+<span class="nc" id="L244">    double startTimeB = Double.parseDouble((String) metadataB.get(&quot;Dataset-DatasetCoverage-StartTimeLong&quot;));</span>
+<span class="nc" id="L245">    String endTimeBStr = (String) metadataB.get(&quot;Dataset-DatasetCoverage-StopTimeLong&quot;);</span>
+<span class="nc" id="L246">    double endTimeB = 0.0;</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">    if (&quot;&quot;.equals(endTimeBStr)) {</span>
+<span class="nc" id="L248">      endTimeB = System.currentTimeMillis();</span>
+    } else {
+<span class="nc" id="L250">      endTimeB = Double.parseDouble(endTimeBStr);</span>
+    }
+<span class="nc" id="L252">    double timespanB = endTimeB - startTimeB;</span>
+
+<span class="nc" id="L254">    double intersect = 0.0;</span>
+<span class="nc bnc" id="L255" title="All 4 branches missed.">    if (startTimeB &gt;= endTimeA || endTimeB &lt;= startTimeA) {</span>
+<span class="nc" id="L256">      intersect = 0.0;</span>
+<span class="nc bnc" id="L257" title="All 4 branches missed.">    } else if (startTimeB &gt;= startTimeA &amp;&amp; endTimeB &lt;= endTimeA) {</span>
+<span class="nc" id="L258">      intersect = timespanB;</span>
+<span class="nc bnc" id="L259" title="All 4 branches missed.">    } else if (startTimeA &gt;= startTimeB &amp;&amp; endTimeA &lt;= endTimeB) {</span>
+<span class="nc" id="L260">      intersect = timespanA;</span>
+    } else {
+<span class="nc bnc" id="L262" title="All 2 branches missed.">      intersect = (startTimeA &gt; startTimeB) ? (endTimeB - startTimeA) : (endTimeA - startTimeB);</span>
+    }
+
+<span class="nc" id="L265">    similarity = intersect / (Math.sqrt(timespanA) * Math.sqrt(timespanB));</span>
+<span class="nc" id="L266">    contentBuilder.field(&quot;Temporal_Covergae_Sim&quot;, similarity);</span>
+<span class="nc" id="L267">  }</span>
+
+  public void categoricalVariablesSimilarity(Map&lt;String, Object&gt; metadataA, Map&lt;String, Object&gt; metadataB, XContentBuilder contentBuilder) throws IOException {
+
+<span class="nc bnc" id="L271" title="All 2 branches missed.">    for (String variable : variableTypes.keySet()) {</span>
+<span class="nc" id="L272">      Integer type = variableTypes.get(variable);</span>
+<span class="nc bnc" id="L273" title="All 2 branches missed.">      if (type != VAR_CATEGORICAL) {</span>
+<span class="nc" id="L274">        continue;</span>
+      }
+
+<span class="nc" id="L277">      double similarity = 0.0;</span>
+<span class="nc" id="L278">      Object valueA = metadataA.get(variable);</span>
+<span class="nc" id="L279">      Object valueB = metadataB.get(variable);</span>
+<span class="nc bnc" id="L280" title="All 2 branches missed.">      if (valueA instanceof ArrayList) {</span>
+<span class="nc" id="L281">        ArrayList&lt;String&gt; aList = (ArrayList&lt;String&gt;) valueA;</span>
+<span class="nc" id="L282">        ArrayList&lt;String&gt; bList = (ArrayList&lt;String&gt;) valueB;</span>
+<span class="nc bnc" id="L283" title="All 4 branches missed.">        if (aList != null &amp;&amp; bList != null) {</span>
+
+<span class="nc" id="L285">          int lengthA = aList.size();</span>
+<span class="nc" id="L286">          int lengthB = bList.size();</span>
+<span class="nc" id="L287">          List&lt;String&gt; newAList = new ArrayList&lt;&gt;(aList);</span>
+<span class="nc" id="L288">          List&lt;String&gt; newBList = new ArrayList&lt;&gt;(bList);</span>
+<span class="nc" id="L289">          newAList.retainAll(newBList);</span>
+<span class="nc" id="L290">          similarity = newAList.size() / lengthA;</span>
+        }
+
+<span class="nc bnc" id="L293" title="All 2 branches missed.">      } else if (valueA instanceof String) {</span>
+<span class="nc bnc" id="L294" title="All 2 branches missed.">        if (valueA.equals(valueB)) {</span>
+<span class="nc" id="L295">          similarity = 1.0;</span>
+        }
+      }
+
+<span class="nc" id="L299">      contentBuilder.field(variable + &quot;_Sim&quot;, similarity);</span>
+<span class="nc" id="L300">    }</span>
+<span class="nc" id="L301">  }</span>
+
+  public void ordinalVariablesSimilarity(Map&lt;String, Object&gt; metadataA, Map&lt;String, Object&gt; metadataB, XContentBuilder contentBuilder) throws IOException {
+<span class="nc bnc" id="L304" title="All 2 branches missed.">    for (String variable : variableTypes.keySet()) {</span>
+<span class="nc" id="L305">      Integer type = variableTypes.get(variable);</span>
+<span class="nc bnc" id="L306" title="All 2 branches missed.">      if (type != VAR_ORDINAL) {</span>
+<span class="nc" id="L307">        continue;</span>
+      }
+
+<span class="nc" id="L310">      double similarity = 0.0;</span>
+<span class="nc" id="L311">      Object valueA = metadataA.get(variable);</span>
+<span class="nc" id="L312">      Object valueB = metadataB.get(variable);</span>
+<span class="nc bnc" id="L313" title="All 4 branches missed.">      if (valueA != null &amp;&amp; valueB != null) {</span>
+
+<span class="nc" id="L315">        double a = (double) valueA;</span>
+<span class="nc" id="L316">        double b = (double) valueB;</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">        if (a != 0.0) {</span>
+<span class="nc" id="L318">          similarity = 1 - Math.abs(b - a) / a;</span>
+<span class="nc bnc" id="L319" title="All 2 branches missed.">          if (similarity &lt; 0) {</span>
+<span class="nc" id="L320">            similarity = 0.0;</span>
+          }
+        }
+      }
+
+<span class="nc" id="L325">      contentBuilder.field(variable + &quot;_Sim&quot;, similarity);</span>
+<span class="nc" id="L326">    }</span>
+<span class="nc" id="L327">  }</span>
+
+  public static void addMapping(ESDriver es, String index, String type) {
+    XContentBuilder Mapping;
+    try {
+<span class="nc" id="L332">      Mapping = jsonBuilder().startObject().startObject(type).startObject(&quot;properties&quot;).startObject(&quot;concept_A&quot;).field(&quot;type&quot;, &quot;string&quot;).field(&quot;index&quot;, &quot;not_analyzed&quot;).endObject()</span>
+<span class="nc" id="L333">          .startObject(&quot;concept_B&quot;).field(&quot;type&quot;, &quot;string&quot;).field(&quot;index&quot;, &quot;not_analyzed&quot;).endObject()</span>
+
+<span class="nc" id="L335">          .endObject().endObject().endObject();</span>
+
+<span class="nc" id="L337">      es.getClient().admin().indices().preparePutMapping(index).setType(type).setSource(Mapping).execute().actionGet();</span>
+<span class="nc" id="L338">    } catch (IOException e) {</span>
+<span class="nc" id="L339">      e.printStackTrace();</span>
+<span class="nc" id="L340">    }</span>
+<span class="nc" id="L341">  }</span>
+
+  public void normalizeVariableWeight(ESDriver es) {
+
+<span class="nc" id="L345">    es.createBulkProcessor();</span>
+
+<span class="nc" id="L347">    double totalWeight = 0.0;</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">    for (String variable : variableWeights.keySet()) {</span>
+<span class="nc" id="L349">      totalWeight += variableWeights.get(variable);</span>
+<span class="nc" id="L350">    }</span>
+
+<span class="nc" id="L352">    SearchResponse scrollResp = es.getClient().prepareSearch(indexName).setTypes(variableSimType).setScroll(new TimeValue(60000)).setQuery(QueryBuilders.matchAllQuery()).setSize(100).execute()</span>
+<span class="nc" id="L353">        .actionGet();</span>
+    while (true) {
+<span class="nc bnc" id="L355" title="All 2 branches missed.">      for (SearchHit hit : scrollResp.getHits().getHits()) {</span>
+<span class="nc" id="L356">        Map&lt;String, Object&gt; similarities = hit.getSource();</span>
+
+<span class="nc" id="L358">        double totalSim = 0.0;</span>
+<span class="nc bnc" id="L359" title="All 2 branches missed.">        for (String variable : variableWeights.keySet()) {</span>
+<span class="nc bnc" id="L360" title="All 2 branches missed.">          if (similarities.containsKey(variable + &quot;_Sim&quot;)) {</span>
+<span class="nc" id="L361">            double value = (double) similarities.get(variable + &quot;_Sim&quot;);</span>
+<span class="nc" id="L362">            double weight = variableWeights.get(variable);</span>
+<span class="nc" id="L363">            totalSim += weight * value;</span>
+          }
+<span class="nc" id="L365">        }</span>
+
+<span class="nc" id="L367">        double weight = totalSim / totalWeight;</span>
+<span class="nc" id="L368">        UpdateRequest ur = es.generateUpdateRequest(indexName, variableSimType, hit.getId(), &quot;weight&quot;, weight);</span>
+<span class="nc" id="L369">        es.getBulkProcessor().add(ur);</span>
+      }
+
+<span class="nc" id="L372">      scrollResp = es.getClient().prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(600000)).execute().actionGet();</span>
+<span class="nc bnc" id="L373" title="All 2 branches missed.">      if (scrollResp.getHits().getHits().length == 0) {</span>
+<span class="nc" id="L374">        break;</span>
+      }
+    }
+
+<span class="nc" id="L378">    es.destroyBulkProcessor();</span>
+<span class="nc" id="L379">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

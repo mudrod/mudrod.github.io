@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SessionNode.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.structure</a> &gt; <span class="el_source">SessionNode.java</span></div><h1>SessionNode.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.weblog.structure;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * ClassName: SessionNode Function: Functions related to a node in a session
+ * tree sturcture.
+ */
+public class SessionNode {
+  // id: Node ID
+  protected String id;
+  // value: Node value
+  protected String value;
+  // parent: Parent node of this node
+  protected SessionNode parent;
+  // children: Child nodes of this node
+<span class="nc" id="L34">  protected List&lt;SessionNode&gt; children = new ArrayList&lt;&gt;();</span>
+  // time: request time of node
+  protected String time;
+  // request: request url of this node
+  protected String request;
+  // referer: previous request url of this node
+  protected String referer;
+  // seq: sequence of this node
+  protected int seq;
+  // key: type of this node extracted from url, including three types -
+  // dataset,datasetlist,ftp
+  protected String key;
+  // logType: log types of this node, including two types - po.dacc, ftp
+  protected String logType;
+  // search: query extracted from this node
+  protected String search;
+  // filter: filter facets extracted from this node
+  protected Map&lt;String, String&gt; filter;
+  // datasetId: viewed/downloaded data set ID
+  protected String datasetId;
+
+<span class="nc" id="L55">  public SessionNode() {</span>
+
+<span class="nc" id="L57">  }</span>
+
+  /**
+   * Creates a new instance of SessionNode.
+   *
+   * @param request: request url
+   * @param logType: including two types - po.dacc, ftp
+   * @param referer: previous request url
+   * @param time:    request time of node
+   * @param seq:     sequence of this node
+   */
+<span class="nc" id="L68">  public SessionNode(String request, String logType, String referer, String time, int seq) {</span>
+<span class="nc" id="L69">    this.logType = logType;</span>
+<span class="nc" id="L70">    this.time = time;</span>
+<span class="nc" id="L71">    this.seq = seq;</span>
+<span class="nc" id="L72">    this.setRequest(request);</span>
+<span class="nc" id="L73">    this.setReferer(referer);</span>
+<span class="nc" id="L74">    this.setKey(request, logType);</span>
+<span class="nc" id="L75">  }</span>
+
+  /**
+   * setReferer: Set previous request url of this node
+   *
+   * @param referer previous request url
+   */
+  public void setReferer(String referer) {
+<span class="nc bnc" id="L83" title="All 2 branches missed.">    if (referer == null) {</span>
+<span class="nc" id="L84">      this.referer = &quot;&quot;;</span>
+<span class="nc" id="L85">      return;</span>
+    }
+<span class="nc" id="L87">    this.referer = referer.toLowerCase().replace(&quot;http://podaac.jpl.nasa.gov&quot;, &quot;&quot;);</span>
+<span class="nc" id="L88">  }</span>
+
+  /**
+   * setRequest: Set request url of this node
+   *
+   * @param req request url
+   */
+  public void setRequest(String req) {
+<span class="nc" id="L96">    this.request = req;</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">    if (this.logType.equals(&quot;PO.DAAC&quot;)) {</span>
+<span class="nc" id="L98">      this.parseRequest(req);</span>
+    }
+<span class="nc" id="L100">  }</span>
+
+  /**
+   * getChildren:Get child nodes of this node
+   *
+   * @return child nodes
+   */
+  public List&lt;SessionNode&gt; getChildren() {
+<span class="nc" id="L108">    return this.children;</span>
+  }
+
+  /**
+   * setChildren: Set child nodes of this node
+   *
+   * @param children child nodes of this node
+   */
+  public void setChildren(List&lt;SessionNode&gt; children) {
+<span class="nc" id="L117">    this.children = children;</span>
+<span class="nc" id="L118">  }</span>
+
+  /**
+   * addChildren: Add a children node
+   *
+   * @param node session node
+   */
+  public void addChildren(SessionNode node) {
+<span class="nc" id="L126">    this.children.add(node);</span>
+<span class="nc" id="L127">  }</span>
+
+  /**
+   * getId:Get node ID
+   *
+   * @return node ID of this node
+   */
+  public String getId() {
+<span class="nc" id="L135">    return this.id;</span>
+  }
+
+  /**
+   * bSame:Compare this node with another node
+   *
+   * @param node {@link SessionNode}
+   * @return boolean value, true mean the two nodes are same
+   */
+  public Boolean bSame(SessionNode node) {
+<span class="nc" id="L145">    Boolean bsame = false;</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">    if (this.request.equals(node.request)) {</span>
+<span class="nc" id="L147">      bsame = true;</span>
+    }
+<span class="nc" id="L149">    return bsame;</span>
+  }
+
+  /**
+   * setKey:Set request type which contains three categories -
+   * dataset,datasetlist,ftp
+   *
+   * @param request request url
+   * @param logType url type
+   */
+  public void setKey(String request, String logType) {
+<span class="nc" id="L160">    this.key = &quot;&quot;;</span>
+<span class="nc" id="L161">    String datasetlist = &quot;/datasetlist?&quot;;</span>
+<span class="nc" id="L162">    String dataset = &quot;/dataset/&quot;;</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">    if (logType.equals(&quot;ftp&quot;)) {</span>
+<span class="nc" id="L164">      this.key = &quot;ftp&quot;;</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">    } else if (logType.equals(&quot;root&quot;)) {</span>
+<span class="nc" id="L166">      this.key = &quot;root&quot;;</span>
+    } else {
+<span class="nc bnc" id="L168" title="All 2 branches missed.">      if (request.contains(datasetlist)) {</span>
+<span class="nc" id="L169">        this.key = &quot;datasetlist&quot;;</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">      } else if (request.contains(dataset) /* || request.contains(granule) */) {</span>
+<span class="nc" id="L171">        this.key = &quot;dataset&quot;;</span>
+      }
+    }
+<span class="nc" id="L174">  }</span>
+
+  /**
+   * getKey:Get request type which contains three categories -
+   * dataset,datasetlist,ftp
+   *
+   * @return request url type of this node
+   */
+  public String getKey() {
+<span class="nc" id="L183">    return this.key;</span>
+  }
+
+  /**
+   * getRequest:Get node request
+   *
+   * @return request url of this node
+   */
+  public String getRequest() {
+<span class="nc" id="L192">    return this.request;</span>
+  }
+
+  /**
+   * getReferer:Get previous request url of this node
+   *
+   * @return previous request url of this node
+   */
+  public String getReferer() {
+<span class="nc" id="L201">    return this.referer;</span>
+  }
+
+  /**
+   * getParent:Get parent node of this node
+   *
+   * @return parent node of this node
+   */
+  public SessionNode getParent() {
+<span class="nc" id="L210">    return this.parent;</span>
+  }
+
+  /**
+   * setParent: Set parent node of this node
+   *
+   * @param parent the previous request node of this node
+   */
+  public void setParent(SessionNode parent) {
+<span class="nc" id="L219">    this.parent = parent;</span>
+<span class="nc" id="L220">  }</span>
+
+  /**
+   * getSearch:Get query of this node
+   *
+   * @return search query of this node
+   */
+  public String getSearch() {
+<span class="nc" id="L228">    return this.search;</span>
+  }
+
+  /**
+   * getFilter:Get filter facets of this node
+   *
+   * @return filter values of this node
+   */
+  public Map&lt;String, String&gt; getFilter() {
+<span class="nc" id="L237">    return this.filter;</span>
+  }
+
+  /**
+   * getDatasetId:Get data set ID of this node
+   *
+   * @return viewing/downloading data set of this node
+   */
+  public String getDatasetId() {
+<span class="nc" id="L246">    return this.datasetId;</span>
+  }
+
+  /**
+   * getSeq:Get sequence of this node
+   *
+   * @return request sequence of this node
+   */
+  public int getSeq() {
+<span class="nc" id="L255">    return this.seq;</span>
+  }
+
+  /**
+   * getFilterStr:Get filter facets of this node
+   *
+   * @return filters values of this node
+   */
+  public String getFilterStr() {
+<span class="nc" id="L264">    String filter = &quot;&quot;;</span>
+<span class="nc bnc" id="L265" title="All 2 branches missed.">    if (this.filter.size() &gt; 0) {</span>
+<span class="nc" id="L266">      Iterator iter = this.filter.keySet().iterator();</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">      while (iter.hasNext()) {</span>
+<span class="nc" id="L268">        String key = (String) iter.next();</span>
+<span class="nc" id="L269">        String val = this.filter.get(key);</span>
+<span class="nc" id="L270">        filter += key + &quot;=&quot; + val + &quot;,&quot;;</span>
+<span class="nc" id="L271">      }</span>
+
+<span class="nc" id="L273">      filter = filter.substring(0, filter.length() - 1);</span>
+    }
+
+<span class="nc" id="L276">    return filter;</span>
+  }
+
+  /**
+   * parseRequest:Parse request to extract request type
+   *
+   * @param request request url of this node
+   */
+  public void parseRequest(String request) {
+<span class="nc" id="L285">    Pattern pattern = Pattern.compile(&quot;get (.*?) http/*&quot;);</span>
+<span class="nc" id="L286">    Matcher matcher = pattern.matcher(request.trim().toLowerCase());</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">    while (matcher.find()) {</span>
+<span class="nc" id="L288">      request = matcher.group(1);</span>
+    }
+<span class="nc bnc" id="L290" title="All 2 branches missed.">    if (request.contains(&quot;/dataset/&quot;)) {</span>
+<span class="nc" id="L291">      this.parseDatasetId(request);</span>
+    }
+
+<span class="nc" id="L294">    this.request = request.toLowerCase();</span>
+<span class="nc" id="L295">  }</span>
+
+  /**
+   * parseFilterParams:Parse filter facets information
+   *
+   * @param params filter key value pairs of this node
+   */
+  private void parseFilterParams(Map&lt;String, String&gt; params) {
+<span class="nc" id="L303">    this.filter = new HashMap&lt;String, String&gt;();</span>
+<span class="nc bnc" id="L304" title="All 2 branches missed.">    if (params.containsKey(&quot;ids&quot;)) {</span>
+<span class="nc" id="L305">      String idsStr = params.get(&quot;ids&quot;);</span>
+<span class="nc bnc" id="L306" title="All 2 branches missed.">      if (!idsStr.equals(&quot;&quot;)) {</span>
+<span class="nc" id="L307">        idsStr = URLDecoder.decode(idsStr);</span>
+<span class="nc" id="L308">        String[] ids = idsStr.split(&quot;:&quot;);</span>
+<span class="nc" id="L309">        String valueStr = params.get(&quot;values&quot;);</span>
+<span class="nc bnc" id="L310" title="All 2 branches missed.">        if (valueStr != null) {</span>
+<span class="nc" id="L311">          valueStr = URLDecoder.decode(valueStr);</span>
+<span class="nc" id="L312">          String[] values = valueStr.split(&quot;:&quot;);</span>
+<span class="nc" id="L313">          int size = ids.length;</span>
+<span class="nc bnc" id="L314" title="All 2 branches missed.">          for (int i = 0; i &lt; size; i++) {</span>
+<span class="nc" id="L315">            this.filter.put(ids[i], values[i]);</span>
+          }
+        }
+      }
+    }
+
+<span class="nc bnc" id="L321" title="All 2 branches missed.">    if (!this.search.equals(&quot;&quot;)) {</span>
+<span class="nc" id="L322">      this.filter.put(&quot;search&quot;, this.search);</span>
+    }
+<span class="nc" id="L324">  }</span>
+
+  /**
+   * parseDatasetId:Parse Request to extract data set ID
+   *
+   * @param request request url
+   */
+  public void parseDatasetId(String request) {
+    try {
+<span class="nc" id="L333">      request = URLDecoder.decode(request, &quot;UTF-8&quot;);</span>
+<span class="nc" id="L334">    } catch (UnsupportedEncodingException e) {</span>
+<span class="nc" id="L335">      e.printStackTrace();</span>
+<span class="nc" id="L336">    }</span>
+<span class="nc" id="L337">    String[] twoparts = request.split(&quot;[?]&quot;);</span>
+<span class="nc" id="L338">    String[] parts = twoparts[0].split(&quot;/&quot;);</span>
+<span class="nc bnc" id="L339" title="All 2 branches missed.">    if (parts.length &lt;= 2) {</span>
+<span class="nc" id="L340">      return;</span>
+    }
+<span class="nc" id="L342">    this.datasetId = parts[2];</span>
+<span class="nc" id="L343">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

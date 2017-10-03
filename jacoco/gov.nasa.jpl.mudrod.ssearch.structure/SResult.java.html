@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SResult.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.ssearch.structure</a> &gt; <span class="el_source">SResult.java</span></div><h1>SResult.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.ssearch.structure;
+
+import java.lang.reflect.Field;
+
+/**
+ * Data structure class for search result
+ */
+public class SResult {
+<span class="nc" id="L22">  public static final String rlist[] = { &quot;term_score&quot;, &quot;releaseDate_score&quot;, /*&quot;versionNum_score&quot;,*/</span>
+      &quot;processingL_score&quot;, &quot;allPop_score&quot;, &quot;monthPop_score&quot;, &quot;userPop_score&quot;/*, &quot;termAndv_score&quot;*/ };
+<span class="nc" id="L24">  String shortName = null;</span>
+<span class="nc" id="L25">  String longName = null;</span>
+<span class="nc" id="L26">  String topic = null;</span>
+<span class="nc" id="L27">  String description = null;</span>
+<span class="nc" id="L28">  String relase_date = null;</span>
+
+<span class="nc" id="L30">  public Double final_score = 0.0;</span>
+<span class="nc" id="L31">  public Double term_score = 0.0;</span>
+<span class="nc" id="L32">  public Double releaseDate_score = 0.0;</span>
+<span class="nc" id="L33">  public Double versionNum_score = 0.0;</span>
+<span class="nc" id="L34">  public Double processingL_score = 0.0;</span>
+<span class="nc" id="L35">  public Double click_score = 0.0;</span>
+<span class="nc" id="L36">  public Double allPop_score = 0.0;</span>
+<span class="nc" id="L37">  public Double monthPop_score = 0.0;</span>
+<span class="nc" id="L38">  public Double userPop_score = 0.0;</span>
+<span class="nc" id="L39">  public Double termAndv_score = 0.0;</span>
+<span class="nc" id="L40">  public Integer below = 0;</span>
+
+<span class="nc" id="L42">  public Double Dataset_LongName_score = null;</span>
+<span class="nc" id="L43">  public Double Dataset_Metadata_score = null;</span>
+<span class="nc" id="L44">  public Double DatasetParameter_Term_score = null;</span>
+<span class="nc" id="L45">  public Double DatasetSource_Source_LongName_score = null;</span>
+<span class="nc" id="L46">  public Double DatasetSource_Sensor_LongName_score = null;</span>
+
+<span class="nc" id="L48">  public String version = null;</span>
+<span class="nc" id="L49">  public String processingLevel = null;</span>
+<span class="nc" id="L50">  public String latency = null;</span>
+<span class="nc" id="L51">  public String stopDateLong = null;</span>
+<span class="nc" id="L52">  public String stopDateFormat = null;</span>
+<span class="nc" id="L53">  public Double spatialR_Sat = null;</span>
+<span class="nc" id="L54">  public Double spatialR_Grid = null;</span>
+<span class="nc" id="L55">  public String temporalR = null;</span>
+
+<span class="nc" id="L57">  public Double releaseDate = null;</span>
+<span class="nc" id="L58">  public Double click = null;</span>
+<span class="nc" id="L59">  public Double term = null;</span>
+<span class="nc" id="L60">  public Double versionNum = null;</span>
+<span class="nc" id="L61">  public Double processingL = null;</span>
+<span class="nc" id="L62">  public Double allPop = null;</span>
+<span class="nc" id="L63">  public Double monthPop = null;</span>
+<span class="nc" id="L64">  public Double userPop = null;</span>
+<span class="nc" id="L65">  public Double termAndv = null;</span>
+
+<span class="nc" id="L67">  public Double Dataset_LongName = null;</span>
+<span class="nc" id="L68">  public Double Dataset_Metadata = null;</span>
+<span class="nc" id="L69">  public Double DatasetParameter_Term = null;</span>
+<span class="nc" id="L70">  public Double DatasetSource_Source_LongName = null;</span>
+<span class="nc" id="L71">  public Double DatasetSource_Sensor_LongName = null;</span>
+
+<span class="nc" id="L73">  public Double prediction = 0.0;</span>
+<span class="nc" id="L74">  public String label = null;</span>
+
+  //add by quintinali
+  public String startDate;
+  public String endDate;
+  public String sensors;
+
+  /**
+   * @param shortName   short name of dataset
+   * @param longName    long name of dataset
+   * @param topic       topic of dataset
+   * @param description description of dataset
+   * @param date        release date of dataset
+   */
+<span class="nc" id="L88">  public SResult(String shortName, String longName, String topic, String description, String date) {</span>
+<span class="nc" id="L89">    this.shortName = shortName;</span>
+<span class="nc" id="L90">    this.longName = longName;</span>
+<span class="nc" id="L91">    this.topic = topic;</span>
+<span class="nc" id="L92">    this.description = description;</span>
+<span class="nc" id="L93">    this.relase_date = date;</span>
+<span class="nc" id="L94">  }</span>
+
+<span class="nc" id="L96">  public SResult(SResult sr) {</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">    for (int i = 0; i &lt; rlist.length; i++) {</span>
+<span class="nc" id="L98">      set(this, rlist[i], get(sr, rlist[i]));</span>
+    }
+<span class="nc" id="L100">  }</span>
+
+  /**
+   * Method of getting export header
+   *
+   * @param delimiter the delimiter used to separate strings
+   * @return header
+   */
+  public static String getHeader(String delimiter) {
+<span class="nc" id="L109">    String str = &quot;&quot;;</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">    for (int i = 0; i &lt; rlist.length; i++) {</span>
+<span class="nc" id="L111">      str += rlist[i] + delimiter;</span>
+    }
+<span class="nc" id="L113">    str = str + &quot;label&quot; + &quot;\n&quot;;</span>
+<span class="nc" id="L114">    return &quot;ShortName&quot; + delimiter + &quot;below&quot; + delimiter + str;</span>
+  }
+
+  /**
+   * Method of get a search results as string
+   *
+   * @param delimiter the delimiter used to separate strings
+   * @return search result as string
+   */
+  public String toString(String delimiter) {
+<span class="nc" id="L124">    String str = &quot;&quot;;</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">    for (int i = 0; i &lt; rlist.length; i++) {</span>
+<span class="nc" id="L126">      double score = get(this, rlist[i]);</span>
+<span class="nc" id="L127">      str += score + delimiter;</span>
+    }
+<span class="nc" id="L129">    str = str + label + &quot;\n&quot;;</span>
+<span class="nc" id="L130">    return shortName + delimiter + below + delimiter + str;</span>
+  }
+
+  /**
+   * Generic setter method
+   *
+   * @param object     instance of SResult
+   * @param fieldName  field name that needs to be set on
+   * @param fieldValue field value that needs to be set to
+   * @return 1 means success, and 0 otherwise
+   */
+  public static boolean set(Object object, String fieldName, Object fieldValue) {
+<span class="nc" id="L142">    Class&lt;?&gt; clazz = object.getClass();</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">    while (clazz != null) {</span>
+      try {
+<span class="nc" id="L145">        Field field = clazz.getDeclaredField(fieldName);</span>
+<span class="nc" id="L146">        field.setAccessible(true);</span>
+<span class="nc" id="L147">        field.set(object, fieldValue);</span>
+<span class="nc" id="L148">        return true;</span>
+<span class="nc" id="L149">      } catch (NoSuchFieldException e) {</span>
+<span class="nc" id="L150">        clazz = clazz.getSuperclass();</span>
+<span class="nc" id="L151">      } catch (Exception e) {</span>
+<span class="nc" id="L152">        throw new IllegalStateException(e);</span>
+<span class="nc" id="L153">      }</span>
+    }
+<span class="nc" id="L155">    return false;</span>
+  }
+
+  /**
+   * Generic getter method
+   *
+   * @param object    instance of SResult
+   * @param fieldName field name of search result
+   * @param &lt;V&gt;       data type
+   * @return the value of the filed in the object
+   */
+  @SuppressWarnings(&quot;unchecked&quot;)
+  public static &lt;V&gt; V get(Object object, String fieldName) {
+<span class="nc" id="L168">    Class&lt;?&gt; clazz = object.getClass();</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">    while (clazz != null) {</span>
+      try {
+<span class="nc" id="L171">        Field field = clazz.getDeclaredField(fieldName);</span>
+<span class="nc" id="L172">        field.setAccessible(true);</span>
+<span class="nc" id="L173">        return (V) field.get(object);</span>
+<span class="nc" id="L174">      } catch (NoSuchFieldException e) {</span>
+<span class="nc" id="L175">        clazz = clazz.getSuperclass();</span>
+<span class="nc" id="L176">      } catch (Exception e) {</span>
+<span class="nc" id="L177">        throw new IllegalStateException(e);</span>
+<span class="nc" id="L178">      }</span>
+    }
+<span class="nc" id="L180">    return null;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ImportMetadata.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.recommendation.pre</a> &gt; <span class="el_source">ImportMetadata.java</span></div><h1>ImportMetadata.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.recommendation.pre;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import gov.nasa.jpl.mudrod.discoveryengine.DiscoveryStepAbstract;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+import gov.nasa.jpl.mudrod.metadata.pre.ApiHarvester;
+import org.apache.commons.io.IOUtils;
+import org.elasticsearch.action.index.IndexRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.util.Properties;
+
+/**
+ * ClassName: Import Metadata to elasticsearch
+ */
+
+public class ImportMetadata extends DiscoveryStepAbstract {
+
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L41">  private static final Logger LOG = LoggerFactory.getLogger(ApiHarvester.class);</span>
+
+  public ImportMetadata(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L44">    super(props, es, spark);</span>
+<span class="nc" id="L45">  }</span>
+
+  @Override
+  public Object execute() {
+<span class="nc" id="L49">    LOG.info(&quot;Starting Metadata Harvesting&quot;);</span>
+<span class="nc" id="L50">    startTime = System.currentTimeMillis();</span>
+<span class="nc" id="L51">    addMetadataMapping();</span>
+<span class="nc" id="L52">    importToES();</span>
+<span class="nc" id="L53">    endTime = System.currentTimeMillis();</span>
+<span class="nc" id="L54">    es.refreshIndex();</span>
+<span class="nc" id="L55">    LOG.info(&quot;Finished Metadata Harvesting time elapsed: {}s&quot;, (endTime - startTime) / 1000);</span>
+<span class="nc" id="L56">    return null;</span>
+  }
+
+  /**
+   * addMetadataMapping: Add mapping to index metadata in Elasticsearch. Please
+   * invoke this method before import metadata to Elasticsearch.
+   */
+  public void addMetadataMapping() {
+<span class="nc" id="L64">    String mappingJson = &quot;{\r\n   \&quot;dynamic_templates\&quot;: &quot; + &quot;[\r\n      &quot; + &quot;{\r\n         \&quot;strings\&quot;: &quot; + &quot;{\r\n            \&quot;match_mapping_type\&quot;: \&quot;string\&quot;,&quot;</span>
+        + &quot;\r\n            \&quot;mapping\&quot;: {\r\n               \&quot;type\&quot;: \&quot;string\&quot;,&quot; + &quot;\r\n               \&quot;analyzer\&quot;: \&quot;csv\&quot;\r\n            }&quot; + &quot;\r\n         }\r\n      }\r\n   ]\r\n}&quot;;
+
+<span class="nc" id="L67">    es.getClient().admin().indices().preparePutMapping(props.getProperty(MudrodConstants.ES_INDEX_NAME)).setType(props.getProperty(&quot;recom_metadataType&quot;)).setSource(mappingJson).execute().actionGet();</span>
+
+<span class="nc" id="L69">  }</span>
+
+  /**
+   * importToES: Index metadata into elasticsearch from local file directory.
+   * Please make sure metadata have been harvest from web service before
+   * invoking this method.
+   */
+  private void importToES() {
+<span class="nc" id="L77">    es.deleteType(props.getProperty(&quot;indexName&quot;), props.getProperty(&quot;recom_metadataType&quot;));</span>
+
+<span class="nc" id="L79">    es.createBulkProcessor();</span>
+<span class="nc" id="L80">    File directory = new File(props.getProperty(MudrodConstants.RAW_METADATA_PATH));</span>
+<span class="nc" id="L81">    File[] fList = directory.listFiles();</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">    for (File file : fList) {</span>
+      InputStream is;
+      try {
+<span class="nc" id="L85">        is = new FileInputStream(file);</span>
+        try {
+<span class="nc" id="L87">          String jsonTxt = IOUtils.toString(is);</span>
+<span class="nc" id="L88">          JsonParser parser = new JsonParser();</span>
+<span class="nc" id="L89">          JsonElement item = parser.parse(jsonTxt);</span>
+<span class="nc" id="L90">          IndexRequest ir = new IndexRequest(props.getProperty(MudrodConstants.ES_INDEX_NAME), props.getProperty(&quot;recom_metadataType&quot;)).source(item.toString());</span>
+
+          // preprocessdata
+
+<span class="nc" id="L94">          es.getBulkProcessor().add(ir);</span>
+<span class="nc" id="L95">        } catch (IOException e) {</span>
+<span class="nc" id="L96">          e.printStackTrace();</span>
+<span class="nc" id="L97">        }</span>
+<span class="nc" id="L98">      } catch (FileNotFoundException e) {</span>
+<span class="nc" id="L99">        e.printStackTrace();</span>
+<span class="nc" id="L100">      }</span>
+
+    }
+
+<span class="nc" id="L104">    es.destroyBulkProcessor();</span>
+<span class="nc" id="L105">  }</span>
+
+  @Override
+  public Object execute(Object o) {
+<span class="nc" id="L109">    return null;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

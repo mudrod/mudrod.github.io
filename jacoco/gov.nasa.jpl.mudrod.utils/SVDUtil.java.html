@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SVDUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.utils</a> &gt; <span class="el_source">SVDUtil.java</span></div><h1>SVDUtil.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.utils;
+
+import gov.nasa.jpl.mudrod.discoveryengine.MudrodAbstract;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.mllib.linalg.Vector;
+import org.apache.spark.mllib.linalg.distributed.CoordinateMatrix;
+import org.apache.spark.mllib.linalg.distributed.RowMatrix;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Properties;
+
+/**
+ * Singular value decomposition
+ */
+public class SVDUtil extends MudrodAbstract {
+
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+  // wordRDD: terms extracted from all documents
+  JavaRDD&lt;String&gt; wordRDD;
+  // svdMatrix: svd matrix
+  private RowMatrix svdMatrix;
+  // simMatrix: similarity matrix
+  private CoordinateMatrix simMatrix;
+
+  /**
+   * Creates a new instance of SVDUtil.
+   *
+   * @param config the Mudrod configuration
+   * @param es     the Elasticsearch drive
+   * @param spark  the spark driver
+   */
+  public SVDUtil(Properties config, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L53">    super(config, es, spark);</span>
+<span class="nc" id="L54">  }</span>
+
+  /**
+   * Build SVD matrix from docment-terms pairs.
+   *
+   * @param docwordRDD    JavaPairRDD, key is short name of data set and values are terms in
+   *                      the corresponding data set
+   * @param svdDimension: Dimension of matrix after singular value decomposition
+   * @return row matrix
+   */
+  public RowMatrix buildSVDMatrix(JavaPairRDD&lt;String, List&lt;String&gt;&gt; docwordRDD, int svdDimension) {
+
+<span class="nc" id="L66">    RowMatrix svdMatrix = null;</span>
+<span class="nc" id="L67">    LabeledRowMatrix wordDocMatrix = MatrixUtil.createWordDocMatrix(docwordRDD);</span>
+<span class="nc" id="L68">    RowMatrix ifIdfMatrix = MatrixUtil.createTFIDFMatrix(wordDocMatrix.rowMatrix);</span>
+<span class="nc" id="L69">    svdMatrix = MatrixUtil.buildSVDMatrix(ifIdfMatrix, svdDimension);</span>
+<span class="nc" id="L70">    this.svdMatrix = svdMatrix;</span>
+<span class="nc" id="L71">    this.wordRDD = RDDUtil.getAllWordsInDoc(docwordRDD);</span>
+<span class="nc" id="L72">    return svdMatrix;</span>
+  }
+
+  /**
+   * Build svd matrix from CSV file.
+   *
+   * @param tfidfCSVfile  tf-idf matrix csv file
+   * @param svdDimension: Dimension of matrix after singular value decomposition
+   * @return row matrix
+   */
+  public RowMatrix buildSVDMatrix(String tfidfCSVfile, int svdDimension) {
+<span class="nc" id="L83">    RowMatrix svdMatrix = null;</span>
+<span class="nc" id="L84">    JavaPairRDD&lt;String, Vector&gt; tfidfRDD = MatrixUtil.loadVectorFromCSV(spark, tfidfCSVfile, 2);</span>
+<span class="nc" id="L85">    JavaRDD&lt;Vector&gt; vectorRDD = tfidfRDD.values();</span>
+
+<span class="nc" id="L87">    svdMatrix = MatrixUtil.buildSVDMatrix(vectorRDD, svdDimension);</span>
+<span class="nc" id="L88">    this.svdMatrix = svdMatrix;</span>
+
+<span class="nc" id="L90">    this.wordRDD = tfidfRDD.keys();</span>
+
+<span class="nc" id="L92">    return svdMatrix;</span>
+  }
+
+  /**
+   * Calculate similarity
+   */
+  public void calSimilarity() {
+<span class="nc" id="L99">    CoordinateMatrix simMatrix = SimilarityUtil.calculateSimilarityFromMatrix(svdMatrix);</span>
+<span class="nc" id="L100">    this.simMatrix = simMatrix;</span>
+<span class="nc" id="L101">  }</span>
+
+  /**
+   * Insert linkage triples to elasticsearch
+   *
+   * @param index index name
+   * @param type  linkage triple name
+   */
+  public void insertLinkageToES(String index, String type) {
+<span class="nc" id="L110">    List&lt;LinkageTriple&gt; triples = SimilarityUtil.matrixToTriples(wordRDD, simMatrix);</span>
+    try {
+<span class="nc" id="L112">      LinkageTriple.insertTriples(es, triples, index, type);</span>
+<span class="nc" id="L113">    } catch (IOException e) {</span>
+<span class="nc" id="L114">      e.printStackTrace();</span>
+<span class="nc" id="L115">    }</span>
+<span class="nc" id="L116">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

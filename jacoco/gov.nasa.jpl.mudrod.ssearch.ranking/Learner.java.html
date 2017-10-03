@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Learner.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.ssearch.ranking</a> &gt; <span class="el_source">Learner.java</span></div><h1>Learner.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.ssearch.ranking;
+
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import org.apache.spark.SparkContext;
+import org.apache.spark.mllib.classification.SVMModel;
+import org.apache.spark.mllib.regression.LabeledPoint;
+
+import java.io.Serializable;
+
+/**
+ * Supports the ability to importing classifier into memory
+ */
+public class Learner implements Serializable {
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+  private static final String SPARKSVM = &quot;SparkSVM&quot;;
+<span class="nc" id="L32">  SVMModel model = null;</span>
+<span class="nc" id="L33">  transient SparkContext sc = null;</span>
+
+  /**
+   * Constructor to load in spark SVM classifier
+   *
+   * @param classifierName classifier type
+   * @param skd            an instance of spark driver
+   * @param svmSgdModel    path to a trained model
+   */
+<span class="nc" id="L42">  public Learner(String classifierName, SparkDriver skd, String svmSgdModel) {</span>
+<span class="nc bnc" id="L43" title="All 2 branches missed.">    if (classifierName.equals(SPARKSVM)) {</span>
+<span class="nc" id="L44">      sc = skd.sc.sc();</span>
+<span class="nc" id="L45">      sc.addFile(svmSgdModel, true);</span>
+<span class="nc" id="L46">      model = SVMModel.load(sc, svmSgdModel);</span>
+    }
+<span class="nc" id="L48">  }</span>
+
+  /**
+   * Method of classifying instance
+   *
+   * @param p the instance that needs to be classified
+   * @return the class id
+   */
+  public double classify(LabeledPoint p) {
+<span class="nc" id="L57">    return model.predict(p.features());</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

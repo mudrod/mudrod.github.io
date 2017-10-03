@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SparkDriver.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.driver</a> &gt; <span class="el_source">SparkDriver.java</span></div><h1>SparkDriver.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.driver;
+
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.serializer.KryoSerializer;
+import org.apache.spark.sql.SQLContext;
+
+import java.io.File;
+import java.io.Serializable;
+import java.net.URISyntaxException;
+import java.util.Properties;
+//import org.apache.spark.sql.SparkSession;
+
+public class SparkDriver implements Serializable {
+
+  //TODO the commented out code below is the API uprgade
+  //for Spark 2.0.0. It requires a large upgrade and simplification
+  //across the mudrod codebase so should be done in an individual ticket.
+  //  /**
+  //   *
+  //   */
+  //  private static final long serialVersionUID = 1L;
+  //  private SparkSession builder;
+  //
+  //  public SparkDriver() {
+  //    builder = SparkSession.builder()
+  //        .master(&quot;local[2]&quot;)
+  //        .config(&quot;spark.hadoop.validateOutputSpecs&quot;, &quot;false&quot;)
+  //        .config(&quot;spark.files.overwrite&quot;, &quot;true&quot;)
+  //        .getOrCreate();
+  //  }
+  //
+  //  public SparkSession getBuilder() {
+  //    return builder;
+  //  }
+  //
+  //  public void setBuilder(SparkSession builder) {
+  //    this.builder = builder;
+  //  }
+  //
+  //  public void close() {
+  //    builder.stop();
+  //  }
+
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+  public transient JavaSparkContext sc;
+  public transient SQLContext sqlContext;
+
+<span class="nc" id="L66">  public SparkDriver() {</span>
+    // empty default constructor
+<span class="nc" id="L68">  }</span>
+
+<span class="nc" id="L70">  public SparkDriver(Properties props) {</span>
+<span class="nc" id="L71">    SparkConf conf = new SparkConf().setAppName(props.getProperty(MudrodConstants.SPARK_APP_NAME, &quot;MudrodSparkApp&quot;)).setIfMissing(&quot;spark.master&quot;, props.getProperty(MudrodConstants.SPARK_MASTER))</span>
+<span class="nc" id="L72">        .set(&quot;spark.hadoop.validateOutputSpecs&quot;, &quot;false&quot;).set(&quot;spark.files.overwrite&quot;, &quot;true&quot;);</span>
+
+<span class="nc" id="L74">    String esHost = props.getProperty(MudrodConstants.ES_UNICAST_HOSTS);</span>
+<span class="nc" id="L75">    String esPort = props.getProperty(MudrodConstants.ES_HTTP_PORT);</span>
+
+<span class="nc bnc" id="L77" title="All 2 branches missed.">    if (!&quot;&quot;.equals(esHost)) {</span>
+<span class="nc" id="L78">      conf.set(&quot;es.nodes&quot;, esHost);</span>
+    }
+
+<span class="nc bnc" id="L81" title="All 2 branches missed.">    if (!&quot;&quot;.equals(esPort)) {</span>
+<span class="nc" id="L82">      conf.set(&quot;es.port&quot;, esPort);</span>
+    }
+
+<span class="nc" id="L85">    conf.set(&quot;spark.serializer&quot;, KryoSerializer.class.getName());</span>
+<span class="nc" id="L86">    conf.set(&quot;es.batch.size.entries&quot;, &quot;1500&quot;);</span>
+
+<span class="nc" id="L88">    sc = new JavaSparkContext(conf);</span>
+<span class="nc" id="L89">    sqlContext = new SQLContext(sc);</span>
+<span class="nc" id="L90">  }</span>
+
+  public void close() {
+<span class="nc" id="L93">    sc.sc().stop();</span>
+<span class="nc" id="L94">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

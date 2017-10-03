@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SessionStatistic.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.pre</a> &gt; <span class="el_source">SessionStatistic.java</span></div><h1>SessionStatistic.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.weblog.pre;
+
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+import gov.nasa.jpl.mudrod.weblog.structure.RequestUrl;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.function.FlatMapFunction;
+import org.apache.spark.api.java.function.Function2;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.metrics.stats.Stats;
+import org.elasticsearch.search.aggregations.metrics.stats.StatsAggregationBuilder;
+import org.joda.time.DateTime;
+import org.joda.time.Seconds;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.ISODateTimeFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+
+/**
+ * Supports ability to post-process session, including summarizing statistics
+ * and filtering
+ */
+public class SessionStatistic extends LogAbstract {
+
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L58">  private static final Logger LOG = LoggerFactory.getLogger(SessionStatistic.class);</span>
+
+  public SessionStatistic(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L61">    super(props, es, spark);</span>
+<span class="nc" id="L62">  }</span>
+
+  @Override
+  public Object execute() {
+<span class="nc" id="L66">    LOG.info(&quot;Starting Session Summarization.&quot;);</span>
+<span class="nc" id="L67">    startTime = System.currentTimeMillis();</span>
+    try {
+<span class="nc" id="L69">      processSession();</span>
+<span class="nc" id="L70">    } catch (IOException e) {</span>
+<span class="nc" id="L71">      e.printStackTrace();</span>
+<span class="nc" id="L72">    } catch (InterruptedException e) {</span>
+<span class="nc" id="L73">      e.printStackTrace();</span>
+<span class="nc" id="L74">    } catch (ExecutionException e) {</span>
+<span class="nc" id="L75">      e.printStackTrace();</span>
+<span class="nc" id="L76">    }</span>
+<span class="nc" id="L77">    endTime = System.currentTimeMillis();</span>
+<span class="nc" id="L78">    es.refreshIndex();</span>
+<span class="nc" id="L79">    LOG.info(&quot;Session Summarization complete. Time elapsed {} seconds.&quot;, (endTime - startTime) / 1000);</span>
+<span class="nc" id="L80">    return null;</span>
+  }
+
+  public void processSession() throws InterruptedException, IOException, ExecutionException {
+<span class="nc" id="L84">    String processingType = props.getProperty(MudrodConstants.PROCESS_TYPE);</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">    if (processingType.equals(&quot;sequential&quot;)) {</span>
+<span class="nc" id="L86">      processSessionInSequential();</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">    } else if (processingType.equals(&quot;parallel&quot;)) {</span>
+<span class="nc" id="L88">      processSessionInParallel();</span>
+    }
+<span class="nc" id="L90">  }</span>
+
+  public void processSessionInSequential() throws IOException, InterruptedException, ExecutionException {
+<span class="nc" id="L93">    es.createBulkProcessor();</span>
+<span class="nc" id="L94">    Terms Sessions = this.getSessionTerms();</span>
+<span class="nc" id="L95">    int session_count = 0;</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">    for (Terms.Bucket entry : Sessions.getBuckets()) {</span>
+<span class="nc bnc" id="L97" title="All 4 branches missed.">      if (entry.getDocCount() &gt;= 3 &amp;&amp; !entry.getKey().equals(&quot;invalid&quot;)) {</span>
+<span class="nc" id="L98">        String sessionid = entry.getKey().toString();</span>
+<span class="nc" id="L99">        int sessionNum = processSession(es, sessionid);</span>
+<span class="nc" id="L100">        session_count += sessionNum;</span>
+      }
+<span class="nc" id="L102">    }</span>
+<span class="nc" id="L103">    LOG.info(&quot;Final Session count: {}&quot;, Integer.toString(session_count));</span>
+<span class="nc" id="L104">    es.destroyBulkProcessor();</span>
+<span class="nc" id="L105">  }</span>
+
+  /**
+   * Extract the dataset ID from a long request
+   *
+   * @param request raw log request
+   * @return dataset ID
+   */
+  public String findDataset(String request) {
+<span class="nc" id="L114">    String pattern1 = &quot;/dataset/&quot;;</span>
+    String pattern2;
+<span class="nc bnc" id="L116" title="All 2 branches missed.">    if (request.contains(&quot;?&quot;)) {</span>
+<span class="nc" id="L117">      pattern2 = &quot;?&quot;;</span>
+    } else {
+<span class="nc" id="L119">      pattern2 = &quot; &quot;;</span>
+    }
+
+<span class="nc" id="L122">    Pattern p = Pattern.compile(Pattern.quote(pattern1) + &quot;(.*?)&quot; + Pattern.quote(pattern2));</span>
+<span class="nc" id="L123">    Matcher m = p.matcher(request);</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">    if (m.find()) {</span>
+<span class="nc" id="L125">      return m.group(1);</span>
+    }
+<span class="nc" id="L127">    return null;</span>
+  }
+
+  public void processSessionInParallel() throws InterruptedException, IOException {
+
+<span class="nc" id="L132">    List&lt;String&gt; sessions = this.getSessions();</span>
+<span class="nc" id="L133">    JavaRDD&lt;String&gt; sessionRDD = spark.sc.parallelize(sessions, partition);</span>
+
+<span class="nc" id="L135">    int sessionCount = 0;</span>
+<span class="nc" id="L136">    sessionCount = sessionRDD.mapPartitions(new FlatMapFunction&lt;Iterator&lt;String&gt;, Integer&gt;() {</span>
+      @Override
+      public Iterator&lt;Integer&gt; call(Iterator&lt;String&gt; arg0) throws Exception {
+<span class="nc" id="L139">        ESDriver tmpES = new ESDriver(props);</span>
+<span class="nc" id="L140">        tmpES.createBulkProcessor();</span>
+<span class="nc" id="L141">        List&lt;Integer&gt; sessionNums = new ArrayList&lt;Integer&gt;();</span>
+<span class="nc" id="L142">        sessionNums.add(0);</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        while (arg0.hasNext()) {</span>
+<span class="nc" id="L144">          String s = arg0.next();</span>
+<span class="nc" id="L145">          Integer sessionNum = processSession(tmpES, s);</span>
+<span class="nc" id="L146">          sessionNums.add(sessionNum);</span>
+<span class="nc" id="L147">        }</span>
+<span class="nc" id="L148">        tmpES.destroyBulkProcessor();</span>
+<span class="nc" id="L149">        tmpES.close();</span>
+<span class="nc" id="L150">        return sessionNums.iterator();</span>
+      }
+<span class="nc" id="L152">    }).reduce(new Function2&lt;Integer, Integer, Integer&gt;() {</span>
+      @Override
+      public Integer call(Integer a, Integer b) {
+<span class="nc" id="L155">        return a + b;</span>
+      }
+    });
+
+<span class="nc" id="L159">    LOG.info(&quot;Final Session count: {}&quot;, Integer.toString(sessionCount));</span>
+<span class="nc" id="L160">  }</span>
+
+  public int processSession(ESDriver es, String sessionId) throws IOException, InterruptedException, ExecutionException {
+
+<span class="nc" id="L164">    String inputType = cleanupType;</span>
+<span class="nc" id="L165">    String outputType = sessionStats;</span>
+
+<span class="nc" id="L167">    DateTimeFormatter fmt = ISODateTimeFormat.dateTime();</span>
+<span class="nc" id="L168">    String min = null;</span>
+<span class="nc" id="L169">    String max = null;</span>
+<span class="nc" id="L170">    DateTime start = null;</span>
+<span class="nc" id="L171">    DateTime end = null;</span>
+<span class="nc" id="L172">    int duration = 0;</span>
+<span class="nc" id="L173">    float request_rate = 0;</span>
+
+<span class="nc" id="L175">    int session_count = 0;</span>
+<span class="nc" id="L176">    Pattern pattern = Pattern.compile(&quot;get (.*?) http/*&quot;);</span>
+
+<span class="nc" id="L178">    StatsAggregationBuilder statsAgg = AggregationBuilders.stats(&quot;Stats&quot;).field(&quot;Time&quot;);</span>
+
+<span class="nc" id="L180">    BoolQueryBuilder filter_search = new BoolQueryBuilder();</span>
+<span class="nc" id="L181">    filter_search.must(QueryBuilders.termQuery(&quot;SessionID&quot;, sessionId));</span>
+
+<span class="nc" id="L183">    SearchResponse sr = es.getClient().prepareSearch(logIndex).setTypes(inputType).setQuery(filter_search).addAggregation(statsAgg).execute().actionGet();</span>
+
+<span class="nc" id="L185">    Stats agg = sr.getAggregations().get(&quot;Stats&quot;);</span>
+<span class="nc" id="L186">    min = agg.getMinAsString();</span>
+<span class="nc" id="L187">    max = agg.getMaxAsString();</span>
+<span class="nc" id="L188">    start = fmt.parseDateTime(min);</span>
+<span class="nc" id="L189">    end = fmt.parseDateTime(max);</span>
+
+<span class="nc" id="L191">    duration = Seconds.secondsBetween(start, end).getSeconds();</span>
+
+<span class="nc" id="L193">    int searchDataListRequest_count = 0;</span>
+<span class="nc" id="L194">    int searchDataRequest_count = 0;</span>
+<span class="nc" id="L195">    int searchDataListRequest_byKeywords_count = 0;</span>
+<span class="nc" id="L196">    int ftpRequest_count = 0;</span>
+<span class="nc" id="L197">    int keywords_num = 0;</span>
+
+<span class="nc" id="L199">    String IP = null;</span>
+<span class="nc" id="L200">    String keywords = &quot;&quot;;</span>
+<span class="nc" id="L201">    String views = &quot;&quot;;</span>
+<span class="nc" id="L202">    String downloads = &quot;&quot;;</span>
+
+<span class="nc" id="L204">    SearchResponse scrollResp = es.getClient().prepareSearch(logIndex).setTypes(inputType).setScroll(new TimeValue(60000)).setQuery(filter_search).setSize(100).execute().actionGet();</span>
+
+    while (true) {
+<span class="nc bnc" id="L207" title="All 2 branches missed.">      for (SearchHit hit : scrollResp.getHits().getHits()) {</span>
+<span class="nc" id="L208">        Map&lt;String, Object&gt; result = hit.getSource();</span>
+
+<span class="nc" id="L210">        String request = (String) result.get(&quot;Request&quot;);</span>
+<span class="nc" id="L211">        String logType = (String) result.get(&quot;LogType&quot;);</span>
+<span class="nc" id="L212">        IP = (String) result.get(&quot;IP&quot;);</span>
+<span class="nc" id="L213">        Matcher matcher = pattern.matcher(request.trim().toLowerCase());</span>
+<span class="nc bnc" id="L214" title="All 2 branches missed.">        while (matcher.find()) {</span>
+<span class="nc" id="L215">          request = matcher.group(1);</span>
+        }
+
+<span class="nc" id="L218">        String datasetlist = &quot;/datasetlist?&quot;;</span>
+<span class="nc" id="L219">        String dataset = &quot;/dataset/&quot;;</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">        if (request.contains(datasetlist)) {</span>
+<span class="nc" id="L221">          searchDataListRequest_count++;</span>
+
+<span class="nc" id="L223">          RequestUrl requestURL = new RequestUrl();</span>
+<span class="nc" id="L224">          String infoStr = requestURL.getSearchInfo(request) + &quot;,&quot;;</span>
+<span class="nc" id="L225">          String info = es.customAnalyzing(props.getProperty(&quot;indexName&quot;), infoStr);</span>
+
+<span class="nc bnc" id="L227" title="All 2 branches missed.">          if (!info.equals(&quot;,&quot;)) {</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">            if (keywords.equals(&quot;&quot;)) {</span>
+<span class="nc" id="L229">              keywords = keywords + info;</span>
+            } else {
+<span class="nc" id="L231">              String[] items = info.split(&quot;,&quot;);</span>
+<span class="nc" id="L232">              String[] keywordList = keywords.split(&quot;,&quot;);</span>
+<span class="nc bnc" id="L233" title="All 2 branches missed.">              for (int m = 0; m &lt; items.length; m++) {</span>
+<span class="nc bnc" id="L234" title="All 2 branches missed.">                if (!Arrays.asList(keywordList).contains(items[m])) {</span>
+<span class="nc" id="L235">                  keywords = keywords + items[m] + &quot;,&quot;;</span>
+                }
+              }
+            }
+          }
+
+        }
+<span class="nc bnc" id="L242" title="All 2 branches missed.">        if (request.startsWith(dataset)) {</span>
+<span class="nc" id="L243">          searchDataRequest_count++;</span>
+<span class="nc bnc" id="L244" title="All 2 branches missed.">          if (findDataset(request) != null) {</span>
+<span class="nc" id="L245">            String view = findDataset(request);</span>
+
+<span class="nc bnc" id="L247" title="All 2 branches missed.">            if (&quot;&quot;.equals(views)) {</span>
+<span class="nc" id="L248">              views = view;</span>
+            } else {
+<span class="nc bnc" id="L250" title="All 2 branches missed.">              if (views.contains(view)) {</span>
+
+              } else {
+<span class="nc" id="L253">                views = views + &quot;,&quot; + view;</span>
+              }
+            }
+          }
+        }
+<span class="nc bnc" id="L258" title="All 2 branches missed.">        if (&quot;ftp&quot;.equals(logType)) {</span>
+<span class="nc" id="L259">          ftpRequest_count++;</span>
+<span class="nc" id="L260">          String download = &quot;&quot;;</span>
+<span class="nc" id="L261">          String requestLowercase = request.toLowerCase();</span>
+<span class="nc bnc" id="L262" title="All 8 branches missed.">          if (requestLowercase.endsWith(&quot;.jpg&quot;) == false &amp;&amp; requestLowercase.endsWith(&quot;.pdf&quot;) == false &amp;&amp; requestLowercase.endsWith(&quot;.txt&quot;) == false &amp;&amp; requestLowercase.endsWith(&quot;.gif&quot;) == false) {</span>
+<span class="nc" id="L263">            download = request;</span>
+          }
+
+<span class="nc bnc" id="L266" title="All 2 branches missed.">          if (&quot;&quot;.equals(downloads)) {</span>
+<span class="nc" id="L267">            downloads = download;</span>
+          } else {
+<span class="nc bnc" id="L269" title="All 2 branches missed.">            if (downloads.contains(download)) {</span>
+
+            } else {
+<span class="nc" id="L272">              downloads = downloads + &quot;,&quot; + download;</span>
+            }
+          }
+        }
+
+      }
+
+<span class="nc" id="L279">      scrollResp = es.getClient().prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(600000)).execute().actionGet();</span>
+      // Break condition: No hits are returned
+<span class="nc bnc" id="L281" title="All 2 branches missed.">      if (scrollResp.getHits().getHits().length == 0) {</span>
+<span class="nc" id="L282">        break;</span>
+      }
+    }
+
+<span class="nc bnc" id="L286" title="All 2 branches missed.">    if (!keywords.equals(&quot;&quot;)) {</span>
+<span class="nc" id="L287">      keywords_num = keywords.split(&quot;,&quot;).length;</span>
+    }
+
+<span class="nc bnc" id="L290" title="All 6 branches missed.">    if (searchDataListRequest_count != 0 &amp;&amp; searchDataListRequest_count &lt;= Integer.parseInt(props.getProperty(&quot;searchf&quot;)) &amp;&amp; searchDataRequest_count != 0 &amp;&amp; searchDataRequest_count &lt;= Integer</span>
+<span class="nc bnc" id="L291" title="All 4 branches missed.">        .parseInt(props.getProperty(&quot;viewf&quot;)) &amp;&amp; ftpRequest_count &lt;= Integer.parseInt(props.getProperty(&quot;downloadf&quot;))) {</span>
+<span class="nc" id="L292">      String sessionURL = props.getProperty(&quot;SessionPort&quot;) + props.getProperty(&quot;SessionUrl&quot;) + &quot;?sessionid=&quot; + sessionId + &quot;&amp;sessionType=&quot; + outputType + &quot;&amp;requestType=&quot; + inputType;</span>
+<span class="nc" id="L293">      session_count = 1;</span>
+
+<span class="nc" id="L295">      IndexRequest ir = new IndexRequest(logIndex, outputType).source(</span>
+<span class="nc" id="L296">          jsonBuilder().startObject().field(&quot;SessionID&quot;, sessionId).field(&quot;SessionURL&quot;, sessionURL).field(&quot;Duration&quot;, duration).field(&quot;Number of Keywords&quot;, keywords_num).field(&quot;Time&quot;, min)</span>
+<span class="nc" id="L297">              .field(&quot;End_time&quot;, max).field(&quot;searchDataListRequest_count&quot;, searchDataListRequest_count).field(&quot;searchDataListRequest_byKeywords_count&quot;, searchDataListRequest_byKeywords_count)</span>
+<span class="nc" id="L298">              .field(&quot;searchDataRequest_count&quot;, searchDataRequest_count).field(&quot;keywords&quot;, es.customAnalyzing(logIndex, keywords)).field(&quot;views&quot;, views).field(&quot;downloads&quot;, downloads)</span>
+<span class="nc" id="L299">              .field(&quot;request_rate&quot;, request_rate).field(&quot;Comments&quot;, &quot;&quot;).field(&quot;Validation&quot;, 0).field(&quot;Produceby&quot;, 0).field(&quot;Correlation&quot;, 0).field(&quot;IP&quot;, IP).endObject());</span>
+
+<span class="nc" id="L301">      es.getBulkProcessor().add(ir);</span>
+    }
+
+<span class="nc" id="L304">    return session_count;</span>
+  }
+
+  @Override
+  public Object execute(Object o) {
+<span class="nc" id="L309">    return null;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

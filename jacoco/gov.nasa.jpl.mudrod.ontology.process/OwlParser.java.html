@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OwlParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.ontology.process</a> &gt; <span class="el_source">OwlParser.java</span></div><h1>OwlParser.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.ontology.process;
+
+import org.apache.jena.ontology.Individual;
+import org.apache.jena.ontology.OntClass;
+import org.apache.jena.ontology.OntModel;
+import org.apache.jena.rdf.model.Literal;
+
+import com.esotericsoftware.minlog.Log;
+
+import gov.nasa.jpl.mudrod.ontology.Ontology;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * {@link gov.nasa.jpl.mudrod.ontology.process.OntologyParser}
+ * implementation for &lt;a href=&quot;http://www.w3.org/TR/owl-features/&quot;&gt;W3C OWL&lt;/a&gt; 
+ * files.
+ */
+public class OwlParser implements OntologyParser {
+  
+  private Ontology ont;
+<span class="fc" id="L40">  private List&lt;OntClass&gt; roots = new ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L42">  public OwlParser() {</span>
+    //default constructor
+<span class="fc" id="L44">  }</span>
+
+  /**
+   * Parse OWL ontology files using Apache Jena
+   */
+  @Override
+  public void parse(Ontology ont, OntModel m) {
+<span class="fc" id="L51">    this.ont = ont;</span>
+<span class="pc bpc" id="L52" title="1 of 2 branches missed.">    for (Iterator&lt;OntClass&gt; i = rootClasses(m); i.hasNext(); ) {</span>
+<span class="nc" id="L53">      OntClass c = i.next();</span>
+
+      //dont deal with anonymous classes
+<span class="nc bnc" id="L56" title="All 2 branches missed.">      if (c.isAnon()) {</span>
+<span class="nc" id="L57">        continue;</span>
+      }
+
+<span class="nc" id="L60">      parseClass(c, new ArrayList&lt;&gt;(), 0);</span>
+<span class="nc" id="L61">    }</span>
+<span class="fc" id="L62">  }</span>
+
+  protected void parseClass(OntClass cls, List&lt;Object&gt; occurs, int depth) {
+    //dont deal with anonymous classes
+<span class="nc bnc" id="L66" title="All 2 branches missed.">    if (cls.isAnon()) {</span>
+<span class="nc" id="L67">      return;</span>
+    }
+
+    //add cls to Ontology searchterms
+    //list labels
+<span class="nc" id="L72">    Iterator&lt;?&gt; labelIter = cls.listLabels(null);</span>
+    //if has no labels
+<span class="nc bnc" id="L74" title="All 2 branches missed.">    if (!labelIter.hasNext()) {</span>
+      //add rdf:ID as a label
+<span class="nc" id="L76">      cls.addLabel(rdfidToLabel(cls.getLocalName()), null);</span>
+    }
+    //reset the label iterator
+<span class="nc" id="L79">    labelIter = cls.listLabels(null);</span>
+
+<span class="nc bnc" id="L81" title="All 2 branches missed.">    while (labelIter.hasNext()) {</span>
+<span class="nc" id="L82">      Literal l = (Literal) labelIter.next();</span>
+<span class="nc" id="L83">      ((LocalOntology) ont).addSearchTerm(l.toString(), cls);</span>
+<span class="nc" id="L84">    }</span>
+
+    // recurse to the next level down
+<span class="nc bnc" id="L87" title="All 4 branches missed.">    if (cls.canAs(OntClass.class) &amp;&amp; !occurs.contains(cls)) {</span>
+      //list subclasses
+<span class="nc bnc" id="L89" title="All 2 branches missed.">      for (Iterator&lt;?&gt; i = cls.listSubClasses(true); i.hasNext(); ) {</span>
+<span class="nc" id="L90">        OntClass sub = (OntClass) i.next();</span>
+
+        // we push this expression on the occurs list before we recurse
+<span class="nc" id="L93">        occurs.add(cls);</span>
+<span class="nc" id="L94">        parseClass(sub, occurs, depth + 1);</span>
+<span class="nc" id="L95">        occurs.remove(cls);</span>
+<span class="nc" id="L96">      }</span>
+
+      //list instances
+<span class="nc bnc" id="L99" title="All 2 branches missed.">      for (Iterator&lt;?&gt; i = cls.listInstances(); i.hasNext(); ) {</span>
+        //add search terms for each instance
+
+        //list labels
+<span class="nc" id="L103">        Individual individual = (Individual) i.next();</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        for (Iterator&lt;?&gt; j = individual.listLabels(null); j.hasNext(); ) {</span>
+<span class="nc" id="L105">          Literal l = (Literal) j.next();</span>
+<span class="nc" id="L106">          ((LocalOntology) ont).addSearchTerm(l.toString(), individual);</span>
+<span class="nc" id="L107">        }</span>
+<span class="nc" id="L108">      }</span>
+    }
+<span class="nc" id="L110">  }</span>
+
+  /**
+   * Parses out all root classes of the given 
+   * {@link org.apache.jena.ontology.OntModel}
+   * @param m the {@link org.apache.jena.ontology.OntModel} we wish to obtain 
+   * all root classes for.
+   * @return an {@link java.util.Iterator} of {@link org.apache.jena.ontology.OntClass}
+   * elements representing all root classes.
+   */
+  @Override
+  public Iterator&lt;OntClass&gt; rootClasses(OntModel m) {
+<span class="fc" id="L122">    Iterator&lt;?&gt; i = m.listClasses();</span>
+<span class="pc bpc" id="L123" title="3 of 4 branches missed.">    if (i.hasNext() &amp;&amp; i.next() instanceof OntClass) {</span>
+      //assume ontology has root classes
+<span class="nc" id="L125">      processSingle(m);</span>
+    } else {
+      //check for presence of aggregate/collection ontologies such as sweetAll.owl
+<span class="fc" id="L128">      processCollection(m);</span>
+    }
+
+<span class="fc" id="L131">    return roots.iterator();</span>
+  }
+
+  private void processSingle(OntModel m) {
+<span class="nc bnc" id="L135" title="All 2 branches missed.">    for (Iterator&lt;?&gt; i = m.listClasses(); i.hasNext(); ) {</span>
+<span class="nc" id="L136">      OntClass c = (OntClass) i.next();</span>
+      try {
+        // too confusing to list all the restrictions as root classes 
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        if (c.isAnon()) {</span>
+<span class="nc" id="L140">          continue;</span>
+        }
+
+<span class="nc bnc" id="L143" title="All 4 branches missed.">        if (c.hasSuperClass(m.getProfile().THING(), true) || c.getCardinality(m.getProfile().SUB_CLASS_OF()) == 0) {</span>
+          // this class is directly descended from Thing
+<span class="nc" id="L145">          roots.add(c);</span>
+        }
+<span class="nc" id="L147">      } catch (Exception e) {</span>
+<span class="nc" id="L148">        Log.error(&quot;Error during extraction or root Classes from Ontology Model: &quot;, e);</span>
+<span class="nc" id="L149">      }</span>
+<span class="nc" id="L150">    }</span>
+<span class="nc" id="L151">  }</span>
+
+  private void processCollection(OntModel m) {
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">    for (Iterator&lt;?&gt; i = m.listSubModels(true); i.hasNext(); ) {</span>
+<span class="nc" id="L155">      OntModel ontModel = (OntModel) i.next();</span>
+<span class="nc" id="L156">      processSingle(ontModel);</span>
+<span class="nc" id="L157">    }</span>
+<span class="fc" id="L158">  }</span>
+
+  public String rdfidToLabel(String idString) {
+<span class="nc" id="L161">    Pattern p = Pattern.compile(&quot;([a-z0-9])([A-Z])&quot;);</span>
+<span class="nc" id="L162">    Matcher m = p.matcher(idString);</span>
+
+<span class="nc" id="L164">    String labelString = idString;</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">    while (m.find()) {</span>
+<span class="nc" id="L166">      labelString = labelString.replaceAll(m.group(1) + m.group(2), m.group(1) + &quot; &quot; + m.group(2));</span>
+    }
+<span class="nc" id="L168">    return labelString;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

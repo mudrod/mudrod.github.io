@@ -1,0 +1,522 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SessionTree.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.structure</a> &gt; <span class="el_source">SessionTree.java</span></div><h1>SessionTree.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.weblog.structure;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import gov.nasa.jpl.mudrod.discoveryengine.MudrodAbstract;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.UnsupportedEncodingException;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+
+/**
+ * ClassName: SessionTree Function: Convert request list in a session to a tree
+ */
+public class SessionTree extends MudrodAbstract {
+
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L37">  private static final Logger LOG = LoggerFactory.getLogger(SessionTree.class);</span>
+  // size: node numbers in the session tree
+<span class="nc" id="L39">  public int size = 0;</span>
+  // root: root node of session tree
+<span class="nc" id="L41">  protected SessionNode root = null;</span>
+  // binsert: indicates inserting a node or not
+<span class="nc" id="L43">  public boolean binsert = false;</span>
+  // tmpnode: tempt node
+  public SessionNode tmpnode;
+  // latestDatasetnode: the latest inserted node whose key is &quot;dataset&quot;
+  public SessionNode latestDatasetnode;
+  // sessionID: session ID
+  private String sessionID;
+  // cleanupType: session type in Elasticsearch
+  private String cleanupType;
+
+  /**
+   * Creates a new instance of SessionTree.
+   *
+   * @param props:       the Mudrod configuration
+   * @param es:          the Elasticsearch drive
+   * @param rootData:    root node of the tree
+   * @param sessionID:   session ID
+   * @param cleanupType: session type
+   */
+  public SessionTree(Properties props, ESDriver es, SessionNode rootData, String sessionID, String cleanupType) {
+<span class="nc" id="L63">    super(props, es, null);</span>
+<span class="nc" id="L64">    root = new SessionNode(&quot;root&quot;, &quot;root&quot;, &quot;&quot;, &quot;&quot;, 0);</span>
+<span class="nc" id="L65">    tmpnode = root;</span>
+<span class="nc" id="L66">    this.sessionID = sessionID;</span>
+<span class="nc" id="L67">    this.cleanupType = cleanupType;</span>
+<span class="nc" id="L68">  }</span>
+
+  /**
+   * Creates a new instance of SessionTree.
+   *
+   * @param props:       the Mudrod configuration
+   * @param es:          the Elasticsearch drive
+   * @param sessionID:   session ID
+   * @param cleanupType: session type
+   */
+  public SessionTree(Properties props, ESDriver es, String sessionID, String cleanupType) {
+<span class="nc" id="L79">    super(props, es, null);</span>
+<span class="nc" id="L80">    root = new SessionNode(&quot;root&quot;, &quot;root&quot;, &quot;&quot;, &quot;&quot;, 0);</span>
+<span class="nc" id="L81">    root.setParent(root);</span>
+<span class="nc" id="L82">    tmpnode = root;</span>
+<span class="nc" id="L83">    this.sessionID = sessionID;</span>
+<span class="nc" id="L84">    this.cleanupType = cleanupType;</span>
+<span class="nc" id="L85">  }</span>
+
+  /**
+   * insert: insert a node into the session tree.
+   *
+   * @param node {@link SessionNode}
+   * @return session node
+   */
+  public SessionNode insert(SessionNode node) {
+    // begin with datasetlist
+<span class="nc bnc" id="L95" title="All 2 branches missed.">    if (node.getKey().equals(&quot;datasetlist&quot;)) {</span>
+<span class="nc" id="L96">      this.binsert = true;</span>
+    }
+<span class="nc bnc" id="L98" title="All 2 branches missed.">    if (!this.binsert) {</span>
+<span class="nc" id="L99">      return null;</span>
+    }
+    // remove unrelated node
+<span class="nc bnc" id="L102" title="All 6 branches missed.">    if (!node.getKey().equals(&quot;datasetlist&quot;) &amp;&amp; !node.getKey().equals(&quot;dataset&quot;) &amp;&amp; !node.getKey().equals(&quot;ftp&quot;)) {</span>
+<span class="nc" id="L103">      return null;</span>
+    }
+    // remove dumplicated click
+<span class="nc bnc" id="L106" title="All 2 branches missed.">    if (node.getRequest().equals(tmpnode.getRequest())) {</span>
+<span class="nc" id="L107">      return null;</span>
+    }
+    // search insert node
+<span class="nc" id="L110">    SessionNode parentnode = this.searchParentNode(node);</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">    if (parentnode == null) {</span>
+<span class="nc" id="L112">      return null;</span>
+    }
+<span class="nc" id="L114">    node.setParent(parentnode);</span>
+<span class="nc" id="L115">    parentnode.addChildren(node);</span>
+
+    // record insert node
+<span class="nc" id="L118">    tmpnode = node;</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">    if (&quot;dataset&quot;.equals(node.getKey())) {</span>
+<span class="nc" id="L120">      latestDatasetnode = node;</span>
+    }
+
+<span class="nc" id="L123">    size++;</span>
+<span class="nc" id="L124">    return node;</span>
+  }
+
+  /**
+   * printTree: Print session tree
+   *
+   * @param node root node of the session tree
+   */
+  public void printTree(SessionNode node) {
+<span class="nc" id="L133">    LOG.info(&quot;node: {} \n&quot;, node.getRequest());</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">    if (node.children.isEmpty()) {</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">      for (int i = 0; i &lt; node.children.size(); i++) {</span>
+<span class="nc" id="L136">        printTree(node.children.get(i));</span>
+      }
+    }
+<span class="nc" id="L139">  }</span>
+
+  /**
+   * TreeToJson: Convert the session tree to Json object
+   *
+   * @param node node of the session tree
+   * @return tree content in Json format
+   */
+  public JsonObject treeToJson(SessionNode node) {
+<span class="nc" id="L148">    Gson gson = new Gson();</span>
+<span class="nc" id="L149">    JsonObject json = new JsonObject();</span>
+
+<span class="nc" id="L151">    json.addProperty(&quot;seq&quot;, node.getSeq());</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">    if (&quot;datasetlist&quot;.equals(node.getKey())) {</span>
+<span class="nc" id="L153">      json.addProperty(&quot;icon&quot;, &quot;./resources/images/searching.png&quot;);</span>
+<span class="nc" id="L154">      json.addProperty(&quot;name&quot;, node.getRequest());</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">    } else if (&quot;dataset&quot;.equals(node.getKey())) {</span>
+<span class="nc" id="L156">      json.addProperty(&quot;icon&quot;, &quot;./resources/images/viewing.png&quot;);</span>
+<span class="nc" id="L157">      json.addProperty(&quot;name&quot;, node.getDatasetId());</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">    } else if (&quot;ftp&quot;.equals(node.getKey())) {</span>
+<span class="nc" id="L159">      json.addProperty(&quot;icon&quot;, &quot;./resources/images/downloading.png&quot;);</span>
+<span class="nc" id="L160">      json.addProperty(&quot;name&quot;, node.getRequest());</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">    } else if (&quot;root&quot;.equals(node.getKey())) {</span>
+<span class="nc" id="L162">      json.addProperty(&quot;name&quot;, &quot;&quot;);</span>
+<span class="nc" id="L163">      json.addProperty(&quot;icon&quot;, &quot;./resources/images/users.png&quot;);</span>
+    }
+
+<span class="nc bnc" id="L166" title="All 2 branches missed.">    if (!node.children.isEmpty()) {</span>
+<span class="nc" id="L167">      List&lt;JsonObject&gt; jsonChildren = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L168" title="All 2 branches missed.">      for (int i = 0; i &lt; node.children.size(); i++) {</span>
+<span class="nc" id="L169">        JsonObject jsonChild = treeToJson(node.children.get(i));</span>
+<span class="nc" id="L170">        jsonChildren.add(jsonChild);</span>
+      }
+<span class="nc" id="L172">      JsonElement jsonElement = gson.toJsonTree(jsonChildren);</span>
+<span class="nc" id="L173">      json.add(&quot;children&quot;, jsonElement);</span>
+    }
+
+<span class="nc" id="L176">    return json;</span>
+  }
+
+  /**
+   * getClickStreamList: Get click stream list in the session
+   *
+   * @return {@link ClickStream}
+   */
+  public List&lt;ClickStream&gt; getClickStreamList() {
+
+<span class="nc" id="L186">    List&lt;ClickStream&gt; clickthroughs = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L187">    List&lt;SessionNode&gt; viewnodes = this.getViewNodes(this.root);</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">    for (int i = 0; i &lt; viewnodes.size(); i++) {</span>
+
+<span class="nc" id="L190">      SessionNode viewnode = viewnodes.get(i);</span>
+<span class="nc" id="L191">      SessionNode parent = viewnode.getParent();</span>
+<span class="nc" id="L192">      List&lt;SessionNode&gt; children = viewnode.getChildren();</span>
+
+<span class="nc bnc" id="L194" title="All 2 branches missed.">      if (!&quot;datasetlist&quot;.equals(parent.getKey())) {</span>
+<span class="nc" id="L195">        continue;</span>
+      }
+
+<span class="nc" id="L198">      RequestUrl requestURL = new RequestUrl();</span>
+<span class="nc" id="L199">      String viewquery = &quot;&quot;;</span>
+      try {
+<span class="nc" id="L201">        String infoStr = requestURL.getSearchInfo(viewnode.getRequest());</span>
+<span class="nc" id="L202">        viewquery = es.customAnalyzing(props.getProperty(&quot;indexName&quot;), infoStr);</span>
+<span class="nc" id="L203">      } catch (UnsupportedEncodingException | InterruptedException | ExecutionException e) {</span>
+<span class="nc" id="L204">        LOG.warn(&quot;Exception getting search info. Ignoring...&quot;, e);</span>
+<span class="nc" id="L205">      }</span>
+
+<span class="nc" id="L207">      String dataset = viewnode.getDatasetId();</span>
+<span class="nc" id="L208">      boolean download = false;</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">      for (int j = 0; j &lt; children.size(); j++) {</span>
+<span class="nc" id="L210">        SessionNode child = children.get(j);</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        if (&quot;ftp&quot;.equals(child.getKey())) {</span>
+<span class="nc" id="L212">          download = true;</span>
+<span class="nc" id="L213">          break;</span>
+        }
+      }
+
+<span class="nc bnc" id="L217" title="All 4 branches missed.">      if (viewquery != null &amp;&amp; !&quot;&quot;.equals(viewquery)) {</span>
+<span class="nc" id="L218">        String[] queries = viewquery.trim().split(&quot;,&quot;);</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">        if (queries.length &gt; 0) {</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">          for (int k = 0; k &lt; queries.length; k++) {</span>
+<span class="nc" id="L221">            ClickStream data = new ClickStream(queries[k], dataset, download);</span>
+<span class="nc" id="L222">            data.setSessionId(this.sessionID);</span>
+<span class="nc" id="L223">            data.setType(this.cleanupType);</span>
+<span class="nc" id="L224">            clickthroughs.add(data);</span>
+          }
+        }
+      }
+    }
+
+<span class="nc" id="L230">    return clickthroughs;</span>
+  }
+
+  /**
+   * searchParentNode:Get parent node of a session node
+   *
+   * @param node {@link SessionNode}
+   * @return node {@link SessionNode}
+   */
+  private SessionNode searchParentNode(SessionNode node) {
+
+<span class="nc" id="L241">    String nodeKey = node.getKey();</span>
+
+<span class="nc bnc" id="L243" title="All 2 branches missed.">    if (&quot;datasetlist&quot;.equals(nodeKey)) {</span>
+<span class="nc bnc" id="L244" title="All 2 branches missed.">      if (&quot;-&quot;.equals(node.getReferer())) {</span>
+<span class="nc" id="L245">        return root;</span>
+      } else {
+<span class="nc" id="L247">        SessionNode tmp = this.findLatestRefer(tmpnode, node.getReferer());</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">        if (tmp == null) {</span>
+<span class="nc" id="L249">          return root;</span>
+        } else {
+<span class="nc" id="L251">          return tmp;</span>
+        }
+      }
+<span class="nc bnc" id="L254" title="All 2 branches missed.">    } else if (&quot;dataset&quot;.equals(nodeKey)) {</span>
+<span class="nc bnc" id="L255" title="All 2 branches missed.">      if (&quot;-&quot;.equals(node.getReferer())) {</span>
+<span class="nc" id="L256">        return null;</span>
+      } else {
+<span class="nc" id="L258">        return this.findLatestRefer(tmpnode, node.getReferer());</span>
+      }
+<span class="nc bnc" id="L260" title="All 2 branches missed.">    } else if (&quot;ftp&quot;.equals(nodeKey)) {</span>
+<span class="nc" id="L261">      return latestDatasetnode;</span>
+    }
+
+<span class="nc" id="L264">    return tmpnode;</span>
+  }
+
+  /**
+   * findLatestRefer: Find parent node whose visiting url is equal to the refer
+   * url of a session node
+   *
+   * @param node:  {@link SessionNode}
+   * @param refer: request url
+   * @return
+   */
+  private SessionNode findLatestRefer(SessionNode node, String refer) {
+    while (true) {
+<span class="nc bnc" id="L277" title="All 2 branches missed.">      if (&quot;root&quot;.equals(node.getKey())) {</span>
+<span class="nc" id="L278">        return null;</span>
+      }
+<span class="nc" id="L280">      SessionNode parentNode = node.getParent();</span>
+<span class="nc bnc" id="L281" title="All 2 branches missed.">      if (refer.equals(parentNode.getRequest())) {</span>
+<span class="nc" id="L282">        return parentNode;</span>
+      }
+
+<span class="nc" id="L285">      SessionNode tmp = this.iterChild(parentNode, refer);</span>
+<span class="nc bnc" id="L286" title="All 2 branches missed.">      if (tmp == null) {</span>
+<span class="nc" id="L287">        node = parentNode;</span>
+<span class="nc" id="L288">        continue;</span>
+      } else {
+<span class="nc" id="L290">        return tmp;</span>
+      }
+    }
+  }
+
+  /**
+   * iterChild:
+   *
+   * @param start
+   * @param refer
+   * @return
+   */
+  private SessionNode iterChild(SessionNode start, String refer) {
+<span class="nc" id="L303">    List&lt;SessionNode&gt; children = start.getChildren();</span>
+<span class="nc bnc" id="L304" title="All 2 branches missed.">    for (int i = children.size() - 1; i &gt;= 0; i--) {</span>
+<span class="nc" id="L305">      SessionNode tmp = children.get(i);</span>
+<span class="nc bnc" id="L306" title="All 2 branches missed.">      if (tmp.getChildren().isEmpty()) {</span>
+<span class="nc bnc" id="L307" title="All 2 branches missed.">        if (refer.equals(tmp.getRequest())) {</span>
+<span class="nc" id="L308">          return tmp;</span>
+        } else {
+          continue;
+        }
+      } else {
+<span class="nc" id="L313">        iterChild(tmp, refer);</span>
+      }
+    }
+
+<span class="nc" id="L317">    return null;</span>
+  }
+
+  /**
+   * check:
+   *
+   * @param children
+   * @param str
+   * @return
+   */
+  private boolean check(List&lt;SessionNode&gt; children, String str) {
+<span class="nc bnc" id="L328" title="All 2 branches missed.">    for (int i = 0; i &lt; children.size(); i++) {</span>
+<span class="nc bnc" id="L329" title="All 2 branches missed.">      if (children.get(i).key.equals(str)) {</span>
+<span class="nc" id="L330">        return true;</span>
+      }
+    }
+<span class="nc" id="L333">    return false;</span>
+  }
+
+  /**
+   * insertHelperChildren:
+   *
+   * @param entry
+   * @param children
+   * @return
+   */
+  private boolean insertHelperChildren(SessionNode entry, List&lt;SessionNode&gt; children) {
+<span class="nc bnc" id="L344" title="All 2 branches missed.">    for (int i = 0; i &lt; children.size(); i++) {</span>
+<span class="nc" id="L345">      boolean result = insertHelper(entry, children.get(i));</span>
+<span class="nc bnc" id="L346" title="All 2 branches missed.">      if (result) {</span>
+<span class="nc" id="L347">        return result;</span>
+      }
+    }
+<span class="nc" id="L350">    return false;</span>
+
+  }
+
+  /**
+   * insertHelper:
+   *
+   * @param entry
+   * @param node
+   * @return
+   */
+  private boolean insertHelper(SessionNode entry, SessionNode node) {
+<span class="nc bnc" id="L362" title="All 4 branches missed.">    if (&quot;datasetlist&quot;.equals(entry.key) || &quot;dataset&quot;.equals(entry.key)) {</span>
+<span class="nc bnc" id="L363" title="All 2 branches missed.">      if (&quot;datasetlist&quot;.equals(node.key)) {</span>
+<span class="nc bnc" id="L364" title="All 2 branches missed.">        if (node.children.isEmpty()) {</span>
+<span class="nc" id="L365">          node.children.add(entry);</span>
+<span class="nc" id="L366">          return true;</span>
+        } else {
+<span class="nc" id="L368">          boolean flag = check(node.children, &quot;datasetlist&quot;);</span>
+<span class="nc bnc" id="L369" title="All 2 branches missed.">          if (!flag) {</span>
+<span class="nc" id="L370">            node.children.add(entry);</span>
+<span class="nc" id="L371">            return true;</span>
+          } else {
+<span class="nc" id="L373">            insertHelperChildren(entry, node.children);</span>
+          }
+<span class="nc" id="L375">        }</span>
+      } else {
+<span class="nc" id="L377">        insertHelperChildren(entry, node.children);</span>
+      }
+<span class="nc bnc" id="L379" title="All 2 branches missed.">    } else if (&quot;ftp&quot;.equals(entry.key)) {</span>
+<span class="nc bnc" id="L380" title="All 2 branches missed.">      if (&quot;dataset&quot;.equals(node.key)) {</span>
+<span class="nc bnc" id="L381" title="All 2 branches missed.">        if (node.children.isEmpty()) {</span>
+<span class="nc" id="L382">          node.children.add(entry);</span>
+<span class="nc" id="L383">          return true;</span>
+        } else {
+<span class="nc" id="L385">          boolean flag = check(node.children, &quot;dataset&quot;);</span>
+<span class="nc bnc" id="L386" title="All 2 branches missed.">          if (!flag) {</span>
+<span class="nc" id="L387">            node.children.add(entry);</span>
+<span class="nc" id="L388">            return true;</span>
+          } else {
+<span class="nc" id="L390">            insertHelperChildren(entry, node.children);</span>
+          }
+<span class="nc" id="L392">        }</span>
+      } else {
+<span class="nc" id="L394">        insertHelperChildren(entry, node.children);</span>
+      }
+    }
+
+<span class="nc" id="L398">    return false;</span>
+  }
+
+  /**
+   * getViewNodes: Get a session node's child nodes whose key is &quot;dataset&quot;.
+   *
+   * @param node
+   * @return a list of session node
+   */
+  private List&lt;SessionNode&gt; getViewNodes(SessionNode node) {
+
+<span class="nc" id="L409">    List&lt;SessionNode&gt; viewnodes = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L410" title="All 2 branches missed.">    if (&quot;dataset&quot;.equals(node.getKey())) {</span>
+<span class="nc" id="L411">      viewnodes.add(node);</span>
+    }
+
+<span class="nc bnc" id="L414" title="All 2 branches missed.">    if (!node.children.isEmpty()) {</span>
+<span class="nc bnc" id="L415" title="All 2 branches missed.">      for (int i = 0; i &lt; node.children.size(); i++) {</span>
+<span class="nc" id="L416">        SessionNode childNode = node.children.get(i);</span>
+<span class="nc" id="L417">        viewnodes.addAll(getViewNodes(childNode));</span>
+      }
+    }
+
+<span class="nc" id="L421">    return viewnodes;</span>
+  }
+
+  private List&lt;SessionNode&gt; getQueryNodes(SessionNode node) {
+<span class="nc" id="L425">    return this.getNodes(node, &quot;datasetlist&quot;);</span>
+  }
+
+  private List&lt;SessionNode&gt; getNodes(SessionNode node, String nodeKey) {
+
+<span class="nc" id="L430">    List&lt;SessionNode&gt; nodes = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L431" title="All 2 branches missed.">    if (node.getKey().equals(nodeKey)) {</span>
+<span class="nc" id="L432">      nodes.add(node);</span>
+    }
+
+<span class="nc bnc" id="L435" title="All 2 branches missed.">    if (!node.children.isEmpty()) {</span>
+<span class="nc bnc" id="L436" title="All 2 branches missed.">      for (int i = 0; i &lt; node.children.size(); i++) {</span>
+<span class="nc" id="L437">        SessionNode childNode = node.children.get(i);</span>
+<span class="nc" id="L438">        nodes.addAll(getNodes(childNode, nodeKey));</span>
+      }
+    }
+
+<span class="nc" id="L442">    return nodes;</span>
+  }
+
+  /**
+   * Obtain the ranking training data.
+   *
+   * @param indexName   the index from whcih to obtain the data
+   * @param sessionID   a valid session identifier
+   * @return {@link ClickStream}
+   * @throws UnsupportedEncodingException if there is an error whilst
+   *                                      processing the ranking training data.
+   */
+  public List&lt;RankingTrainData&gt; getRankingTrainData(String indexName, String sessionID) throws UnsupportedEncodingException {
+
+<span class="nc" id="L456">    List&lt;RankingTrainData&gt; trainDatas = new ArrayList&lt;&gt;();</span>
+
+<span class="nc" id="L458">    List&lt;SessionNode&gt; queryNodes = this.getQueryNodes(this.root);</span>
+<span class="nc bnc" id="L459" title="All 2 branches missed.">    for (int i = 0; i &lt; queryNodes.size(); i++) {</span>
+<span class="nc" id="L460">      SessionNode querynode = queryNodes.get(i);</span>
+<span class="nc" id="L461">      List&lt;SessionNode&gt; children = querynode.getChildren();</span>
+
+<span class="nc" id="L463">      LinkedHashMap&lt;String, Boolean&gt; datasetOpt = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc" id="L464">      int ndownload = 0;</span>
+<span class="nc bnc" id="L465" title="All 2 branches missed.">      for (int j = 0; j &lt; children.size(); j++) {</span>
+<span class="nc" id="L466">        SessionNode node = children.get(j);</span>
+<span class="nc bnc" id="L467" title="All 2 branches missed.">        if (&quot;dataset&quot;.equals(node.getKey())) {</span>
+<span class="nc" id="L468">          Boolean bDownload = false;</span>
+<span class="nc" id="L469">          List&lt;SessionNode&gt; nodeChildren = node.getChildren();</span>
+<span class="nc" id="L470">          int childSize = nodeChildren.size();</span>
+<span class="nc bnc" id="L471" title="All 2 branches missed.">          for (int k = 0; k &lt; childSize; k++) {</span>
+<span class="nc bnc" id="L472" title="All 2 branches missed.">            if (&quot;ftp&quot;.equals(nodeChildren.get(k).getKey())) {</span>
+<span class="nc" id="L473">              bDownload = true;</span>
+<span class="nc" id="L474">              ndownload += 1;</span>
+<span class="nc" id="L475">              break;</span>
+            }
+          }
+<span class="nc" id="L478">          datasetOpt.put(node.datasetId, bDownload);</span>
+        }
+      }
+
+      // method 1: The priority of download data are higher
+<span class="nc bnc" id="L483" title="All 4 branches missed.">      if (datasetOpt.size() &gt; 1 &amp;&amp; ndownload &gt; 0) {</span>
+        // query
+<span class="nc" id="L485">        RequestUrl requestURL = new RequestUrl();</span>
+<span class="nc" id="L486">        String queryUrl = querynode.getRequest();</span>
+<span class="nc" id="L487">        String infoStr = requestURL.getSearchInfo(queryUrl);</span>
+<span class="nc" id="L488">        String query = null;</span>
+        try {
+<span class="nc" id="L490">          query = es.customAnalyzing(props.getProperty(&quot;indexName&quot;), infoStr);</span>
+<span class="nc" id="L491">        } catch (InterruptedException | ExecutionException e) {</span>
+<span class="nc" id="L492">          throw new RuntimeException(&quot;Error performing custom analyzing&quot;, e);</span>
+<span class="nc" id="L493">        }</span>
+<span class="nc" id="L494">        Map&lt;String, String&gt; filter = RequestUrl.getFilterInfo(queryUrl);</span>
+
+<span class="nc bnc" id="L496" title="All 2 branches missed.">        for (String datasetA : datasetOpt.keySet()) {</span>
+<span class="nc" id="L497">          Boolean bDownloadA = datasetOpt.get(datasetA);</span>
+<span class="nc bnc" id="L498" title="All 2 branches missed.">          if (bDownloadA) {</span>
+<span class="nc bnc" id="L499" title="All 2 branches missed.">            for (String datasetB : datasetOpt.keySet()) {</span>
+<span class="nc" id="L500">              Boolean bDownloadB = datasetOpt.get(datasetB);</span>
+<span class="nc bnc" id="L501" title="All 2 branches missed.">              if (!bDownloadB) {</span>
+
+<span class="nc" id="L503">                String[] queries = query.split(&quot;,&quot;);</span>
+<span class="nc bnc" id="L504" title="All 2 branches missed.">                for (int l = 0; l &lt; queries.length; l++) {</span>
+<span class="nc" id="L505">                  RankingTrainData trainData = new RankingTrainData(queries[l], datasetA, datasetB);</span>
+
+<span class="nc" id="L507">                  trainData.setSessionId(this.sessionID);</span>
+<span class="nc" id="L508">                  trainData.setIndex(indexName);</span>
+<span class="nc" id="L509">                  trainData.setFilter(filter);</span>
+<span class="nc" id="L510">                  trainDatas.add(trainData);</span>
+                }
+              }
+<span class="nc" id="L513">            }</span>
+          }
+<span class="nc" id="L515">        }</span>
+      }
+    }
+
+<span class="nc" id="L519">    return trainDatas;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

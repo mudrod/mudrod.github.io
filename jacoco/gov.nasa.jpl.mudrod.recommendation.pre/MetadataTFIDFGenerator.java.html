@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MetadataTFIDFGenerator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.recommendation.pre</a> &gt; <span class="el_source">MetadataTFIDFGenerator.java</span></div><h1>MetadataTFIDFGenerator.java</h1><pre class="source lang-java linenums">/**
+ * Project Name:mudrod-core
+ * File Name:TFIDFGenerator.java
+ * Package Name:gov.nasa.jpl.mudrod.recommendation.pre
+ * Date:Aug 22, 201612:39:52 PM
+ * Copyright (c) 2016, chenzhou1025@126.com All Rights Reserved.
+ */
+
+package gov.nasa.jpl.mudrod.recommendation.pre;
+
+import gov.nasa.jpl.mudrod.discoveryengine.DiscoveryStepAbstract;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.recommendation.structure.MetadataOpt;
+import gov.nasa.jpl.mudrod.utils.LabeledRowMatrix;
+import gov.nasa.jpl.mudrod.utils.MatrixUtil;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+
+/**
+ * ClassName: Generate TFIDF information of all metadata
+ */
+public class MetadataTFIDFGenerator extends DiscoveryStepAbstract {
+
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L31">  private static final Logger LOG = LoggerFactory.getLogger(MetadataTFIDFGenerator.class);</span>
+
+  /**
+   * Creates a new instance of MatrixGenerator.
+   *
+   * @param props the Mudrod configuration
+   * @param es    the Elasticsearch drive
+   * @param spark the spark drive
+   */
+  public MetadataTFIDFGenerator(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L41">    super(props, es, spark);</span>
+<span class="nc" id="L42">  }</span>
+
+  @Override
+  public Object execute() {
+
+<span class="nc" id="L47">    LOG.info(&quot;Starting Dataset TF_IDF Matrix Generator&quot;);</span>
+<span class="nc" id="L48">    startTime = System.currentTimeMillis();</span>
+    try {
+<span class="nc" id="L50">      generateWordBasedTFIDF();</span>
+<span class="nc" id="L51">    } catch (Exception e) {</span>
+<span class="nc" id="L52">      LOG.error(&quot;Error during Dataset TF_IDF Matrix Generation: {}&quot;, e);</span>
+<span class="nc" id="L53">    }</span>
+<span class="nc" id="L54">    endTime = System.currentTimeMillis();</span>
+
+<span class="nc" id="L56">    LOG.info(&quot;Dataset TF_IDF Matrix Generation complete, time elaspsed: {}s&quot;, (endTime - startTime) / 1000);</span>
+
+<span class="nc" id="L58">    return null;</span>
+  }
+
+  @Override
+  public Object execute(Object o) {
+<span class="nc" id="L63">    return null;</span>
+  }
+
+  public LabeledRowMatrix generateWordBasedTFIDF() throws Exception {
+
+<span class="nc" id="L68">    MetadataOpt opt = new MetadataOpt(props);</span>
+
+<span class="nc" id="L70">    JavaPairRDD&lt;String, String&gt; metadataContents = opt.loadAll(es, spark);</span>
+
+<span class="nc" id="L72">    JavaPairRDD&lt;String, List&lt;String&gt;&gt; metadataWords = opt.tokenizeData(metadataContents, &quot; &quot;);</span>
+
+<span class="nc" id="L74">    LabeledRowMatrix wordtfidfMatrix = opt.tFIDFTokens(metadataWords, spark);</span>
+
+<span class="nc" id="L76">    MatrixUtil.exportToCSV(wordtfidfMatrix.rowMatrix, wordtfidfMatrix.rowkeys, wordtfidfMatrix.colkeys, props.getProperty(&quot;metadata_word_tfidf_matrix&quot;));</span>
+
+<span class="nc" id="L78">    return wordtfidfMatrix;</span>
+  }
+
+  public LabeledRowMatrix generateTermBasedTFIDF() throws Exception {
+
+<span class="nc" id="L83">    MetadataOpt opt = new MetadataOpt(props);</span>
+
+<span class="nc" id="L85">    List&lt;String&gt; variables = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L86">    variables.add(&quot;DatasetParameter-Term&quot;);</span>
+<span class="nc" id="L87">    variables.add(&quot;DatasetParameter-Variable&quot;);</span>
+<span class="nc" id="L88">    variables.add(&quot;Dataset-ExtractTerm&quot;);</span>
+
+<span class="nc" id="L90">    JavaPairRDD&lt;String, String&gt; metadataContents = opt.loadAll(es, spark, variables);</span>
+
+<span class="nc" id="L92">    JavaPairRDD&lt;String, List&lt;String&gt;&gt; metadataTokens = opt.tokenizeData(metadataContents, &quot;,&quot;);</span>
+
+<span class="nc" id="L94">    LabeledRowMatrix tokentfidfMatrix = opt.tFIDFTokens(metadataTokens, spark);</span>
+
+<span class="nc" id="L96">    MatrixUtil.exportToCSV(tokentfidfMatrix.rowMatrix, tokentfidfMatrix.rowkeys, tokentfidfMatrix.colkeys, props.getProperty(&quot;metadata_term_tfidf_matrix&quot;));</span>
+
+<span class="nc" id="L98">    return tokentfidfMatrix;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

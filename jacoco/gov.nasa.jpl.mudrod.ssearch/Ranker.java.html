@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Ranker.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.ssearch</a> &gt; <span class="el_source">Ranker.java</span></div><h1>Ranker.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.ssearch;
+
+import gov.nasa.jpl.mudrod.discoveryengine.MudrodAbstract;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+import gov.nasa.jpl.mudrod.ssearch.ranking.Learner;
+import gov.nasa.jpl.mudrod.ssearch.structure.SResult;
+import org.apache.spark.mllib.linalg.Vectors;
+import org.apache.spark.mllib.regression.LabeledPoint;
+
+import java.io.Serializable;
+import java.text.DecimalFormat;
+import java.util.*;
+
+/**
+ * Supports the ability to calculating ranking score
+ */
+public class Ranker extends MudrodAbstract implements Serializable {
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L37">  transient List&lt;SResult&gt; resultList = new ArrayList&lt;&gt;();</span>
+
+<span class="nc" id="L39">  String learnerType = null;</span>
+<span class="nc" id="L40">  Learner le = null;</span>
+
+  public Ranker(Properties props, ESDriver es, SparkDriver spark, String learnerType) {
+<span class="nc" id="L43">    super(props, es, spark);</span>
+<span class="nc" id="L44">    this.learnerType = learnerType;</span>
+<span class="nc" id="L45">    le = new Learner(learnerType, spark, props.getProperty(MudrodConstants.SVM_SGD_MODEL));</span>
+<span class="nc" id="L46">  }</span>
+
+  /**
+   * Method of comparing results based on final score
+   */
+<span class="nc" id="L51">  public class ResultComparator implements Comparator&lt;SResult&gt; {</span>
+    @Override
+    public int compare(SResult o1, SResult o2) {
+<span class="nc" id="L54">      return o2.below.compareTo(o1.below);</span>
+    }
+  }
+
+  /**
+   * Method of calculating mean value
+   *
+   * @param attribute  the attribute name that need to be calculated on
+   * @param resultList an array list of result
+   * @return mean value
+   */
+  private double getMean(String attribute, List&lt;SResult&gt; resultList) {
+<span class="nc" id="L66">    double sum = 0.0;</span>
+<span class="nc bnc" id="L67" title="All 2 branches missed.">    for (SResult a : resultList) {</span>
+<span class="nc" id="L68">      sum += (double) SResult.get(a, attribute);</span>
+<span class="nc" id="L69">    }</span>
+<span class="nc" id="L70">    return getNDForm(sum / resultList.size());</span>
+  }
+
+  /**
+   * Method of calculating variance value
+   *
+   * @param attribute  the attribute name that need to be calculated on
+   * @param resultList an array list of result
+   * @return variance value
+   */
+  private double getVariance(String attribute, List&lt;SResult&gt; resultList) {
+<span class="nc" id="L81">    double mean = getMean(attribute, resultList);</span>
+<span class="nc" id="L82">    double temp = 0.0;</span>
+    double val;
+<span class="nc bnc" id="L84" title="All 2 branches missed.">    for (SResult a : resultList) {</span>
+<span class="nc" id="L85">      val = (Double) SResult.get(a, attribute);</span>
+<span class="nc" id="L86">      temp += (mean - val) * (mean - val);</span>
+<span class="nc" id="L87">    }</span>
+
+<span class="nc" id="L89">    return getNDForm(temp / resultList.size());</span>
+  }
+
+  /**
+   * Method of calculating standard variance
+   *
+   * @param attribute  the attribute name that need to be calculated on
+   * @param resultList an array list of result
+   * @return standard variance
+   */
+  private double getStdDev(String attribute, List&lt;SResult&gt; resultList) {
+<span class="nc" id="L100">    return getNDForm(Math.sqrt(getVariance(attribute, resultList)));</span>
+  }
+
+  /**
+   * Method of calculating Z score
+   *
+   * @param val  the value of an attribute
+   * @param mean the mean value of an attribute
+   * @param std  the standard deviation of an attribute
+   * @return Z score
+   */
+  private double getZscore(double val, double mean, double std) {
+<span class="nc bnc" id="L112" title="All 2 branches missed.">    if (!equalComp(std, 0)) {</span>
+<span class="nc" id="L113">      return getNDForm((val - mean) / std);</span>
+    } else {
+<span class="nc" id="L115">      return 0;</span>
+    }
+  }
+
+  private boolean equalComp(double a, double b) {
+<span class="nc bnc" id="L120" title="All 2 branches missed.">    return Math.abs(a - b) &lt; 0.0001;</span>
+  }
+
+  /**
+   * Get the first N decimals of a double value
+   *
+   * @param d double value that needs to be processed
+   * @return processed double value
+   */
+  private double getNDForm(double d) {
+<span class="nc" id="L130">    DecimalFormat ndForm = new DecimalFormat(&quot;#.###&quot;);</span>
+<span class="nc" id="L131">    return Double.valueOf(ndForm.format(d));</span>
+  }
+
+  /**
+   * Method of ranking a list of result
+   *
+   * @param resultList result list
+   * @return ranked result list
+   */
+  public List&lt;SResult&gt; rank(List&lt;SResult&gt; resultList) {
+<span class="nc bnc" id="L141" title="All 2 branches missed.">    for (int i = 0; i &lt; resultList.size(); i++) {</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">      for (int m = 0; m &lt; SResult.rlist.length; m++) {</span>
+<span class="nc" id="L143">        String att = SResult.rlist[m].split(&quot;_&quot;)[0];</span>
+<span class="nc" id="L144">        double val = SResult.get(resultList.get(i), att);</span>
+<span class="nc" id="L145">        double mean = getMean(att, resultList);</span>
+<span class="nc" id="L146">        double std = getStdDev(att, resultList);</span>
+<span class="nc" id="L147">        double score = getZscore(val, mean, std);</span>
+<span class="nc" id="L148">        String scoreId = SResult.rlist[m];</span>
+<span class="nc" id="L149">        SResult.set(resultList.get(i), scoreId, score);</span>
+      }
+    }
+
+    // using collection.sort directly would cause an &quot;not transitive&quot; error
+    // this is because the training model is not a overfitting model
+<span class="nc bnc" id="L155" title="All 2 branches missed.">    for (int j = 0; j &lt; resultList.size(); j++) {</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">      for (int k = 0; k &lt; resultList.size(); k++) {</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">        if (k != j) {</span>
+<span class="nc" id="L158">          resultList.get(j).below += comp(resultList.get(j), resultList.get(k));</span>
+        }
+      }
+    }
+
+<span class="nc" id="L163">    Collections.sort(resultList, new ResultComparator());</span>
+<span class="nc" id="L164">    return resultList;</span>
+  }
+
+  /**
+   * Method of compare two search resutls
+   *
+   * @param o1 search result 1
+   * @param o2 search result 2
+   * @return 1 if o1 is greater than o2, 0 otherwise
+   */
+  public int comp(SResult o1, SResult o2) {
+<span class="nc" id="L175">    List&lt;Double&gt; instList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L176" title="All 2 branches missed.">    for (int i = 0; i &lt; SResult.rlist.length; i++) {</span>
+<span class="nc" id="L177">      double o2Score = SResult.get(o2, SResult.rlist[i]);</span>
+<span class="nc" id="L178">      double o1Score = SResult.get(o1, SResult.rlist[i]);</span>
+<span class="nc" id="L179">      instList.add(o2Score - o1Score);</span>
+    }
+
+<span class="nc" id="L182">    double[] ins = instList.stream().mapToDouble(i -&gt; i).toArray();</span>
+<span class="nc" id="L183">    LabeledPoint insPoint = new LabeledPoint(99.0, Vectors.dense(ins));</span>
+<span class="nc" id="L184">    double prediction = le.classify(insPoint);</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">    if (equalComp(prediction, 1)) { //different from weka where the return value is 1 or 2</span>
+<span class="nc" id="L186">      return 0;</span>
+    } else {
+<span class="nc" id="L188">      return 1;</span>
+    }
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

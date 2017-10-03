@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LinkageIntegration.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.integration</a> &gt; <span class="el_source">LinkageIntegration.java</span></div><h1>LinkageIntegration.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.integration;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import gov.nasa.jpl.mudrod.discoveryengine.DiscoveryStepAbstract;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.sort.SortOrder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.text.DecimalFormat;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+
+/**
+ * Supports ability to integrate vocab similarity results from metadata, ontology, and web logs.
+ */
+public class LinkageIntegration extends DiscoveryStepAbstract {
+
+<span class="nc" id="L40">  private static final Logger LOG = LoggerFactory.getLogger(LinkageIntegration.class);</span>
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L42">  transient List&lt;LinkedTerm&gt; termList = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L43">  DecimalFormat df = new DecimalFormat(&quot;#.00&quot;);</span>
+  private static final String INDEX_NAME = &quot;indexName&quot;;
+  private static final String WEIGHT = &quot;weight&quot;;
+
+  public LinkageIntegration(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L48">    super(props, es, spark);</span>
+<span class="nc" id="L49">  }</span>
+
+  /**
+   * The data structure to store semantic triple.
+   */
+  class LinkedTerm {
+<span class="nc" id="L55">    String term = null;</span>
+<span class="nc" id="L56">    double weight = 0;</span>
+<span class="nc" id="L57">    String model = null;</span>
+
+<span class="nc" id="L59">    public LinkedTerm(String str, double w, String m) {</span>
+<span class="nc" id="L60">      term = str;</span>
+<span class="nc" id="L61">      weight = w;</span>
+<span class="nc" id="L62">      model = m;</span>
+<span class="nc" id="L63">    }</span>
+  }
+
+  /**
+   * Method of executing integration step
+   */
+  @Override
+  public Object execute() {
+<span class="nc" id="L71">    getIngeratedList(&quot;ocean wind&quot;, 11);</span>
+<span class="nc" id="L72">    return null;</span>
+  }
+
+  @Override
+  public Object execute(Object o) {
+<span class="nc" id="L77">    return null;</span>
+  }
+
+  /**
+   * Method of getting integrated results
+   *
+   * @param input query string
+   * @return a hash map where the string is a related term, and double is the
+   * similarity to the input query
+   */
+  public Map&lt;String, Double&gt; appyMajorRule(String input) {
+<span class="nc" id="L88">    termList = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L89">    Map&lt;String, Double&gt; termsMap = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L90">    Map&lt;String, List&lt;LinkedTerm&gt;&gt; map = new HashMap&lt;&gt;();</span>
+    try {
+<span class="nc" id="L92">      map = aggregateRelatedTermsFromAllmodel(es.customAnalyzing(props.getProperty(INDEX_NAME), input));</span>
+<span class="nc" id="L93">    } catch (InterruptedException | ExecutionException e) {</span>
+<span class="nc" id="L94">      LOG.error(&quot;Error applying majority rule&quot;, e);</span>
+<span class="nc" id="L95">    }</span>
+
+<span class="nc bnc" id="L97" title="All 2 branches missed.">    for (Entry&lt;String, List&lt;LinkedTerm&gt;&gt; entry : map.entrySet()) {</span>
+<span class="nc" id="L98">      List&lt;LinkedTerm&gt; list = entry.getValue();</span>
+<span class="nc" id="L99">      double sumModelWeight = 0;</span>
+<span class="nc" id="L100">      double tmp = 0;</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">      for (LinkedTerm element : list) {</span>
+<span class="nc" id="L102">        sumModelWeight += getModelweight(element.model);</span>
+
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        if (element.weight &gt; tmp) {</span>
+<span class="nc" id="L105">          tmp = element.weight;</span>
+        }
+<span class="nc" id="L107">      }</span>
+
+<span class="nc" id="L109">      double finalWeight = tmp + ((sumModelWeight - 2) * 0.05);</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">      if (finalWeight &lt; 0) {</span>
+<span class="nc" id="L111">        finalWeight = 0;</span>
+      }
+
+<span class="nc bnc" id="L114" title="All 2 branches missed.">      if (finalWeight &gt; 1) {</span>
+<span class="nc" id="L115">        finalWeight = 1;</span>
+      }
+<span class="nc" id="L117">      termsMap.put(entry.getKey(), Double.parseDouble(df.format(finalWeight)));</span>
+<span class="nc" id="L118">    }</span>
+
+<span class="nc" id="L120">    return sortMapByValue(termsMap);</span>
+  }
+
+  /**
+   * Method of getting integrated results
+   *
+   * @param input query string
+   * @param num   the number of most related terms
+   * @return a string of related terms along with corresponding similarities
+   */
+  public String getIngeratedList(String input, int num) {
+<span class="nc" id="L131">    String output = &quot;&quot;;</span>
+<span class="nc" id="L132">    Map&lt;String, Double&gt; sortedMap = appyMajorRule(input);</span>
+<span class="nc" id="L133">    int count = 0;</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">    for (Entry&lt;String, Double&gt; entry : sortedMap.entrySet()) {</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">      if (count &lt; num) {</span>
+<span class="nc" id="L136">        output += entry.getKey() + &quot; = &quot; + entry.getValue() + &quot;, &quot;;</span>
+      }
+<span class="nc" id="L138">      count++;</span>
+<span class="nc" id="L139">    }</span>
+<span class="nc" id="L140">    LOG.info(&quot;\n************************Integrated results***************************&quot;);</span>
+<span class="nc" id="L141">    LOG.info(output);</span>
+<span class="nc" id="L142">    return output;</span>
+  }
+
+  /**
+   * Method of getting integrated results
+   *
+   * @param input query string
+   * @return a JSON object of related terms along with corresponding similarities
+   */
+  public JsonObject getIngeratedListInJson(String input) {
+<span class="nc" id="L152">    Map&lt;String, Double&gt; sortedMap = appyMajorRule(input);</span>
+<span class="nc" id="L153">    int count = 0;</span>
+<span class="nc" id="L154">    Map&lt;String, Double&gt; trimmedMap = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">    for (Entry&lt;String, Double&gt; entry : sortedMap.entrySet()) {</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">      if (!entry.getKey().contains(&quot;china&quot;)) {</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">        if (count &lt; 10) {</span>
+<span class="nc" id="L158">          trimmedMap.put(entry.getKey(), entry.getValue());</span>
+        }
+<span class="nc" id="L160">        count++;</span>
+      }
+<span class="nc" id="L162">    }</span>
+
+<span class="nc" id="L164">    return mapToJson(trimmedMap);</span>
+  }
+
+  /**
+   * Method of aggregating terms from web logs, metadata, and ontology
+   *
+   * @param input query string
+   * @return a hash map where the string is a related term, and the list is
+   * the similarities from different sources
+   */
+  public Map&lt;String, List&lt;LinkedTerm&gt;&gt; aggregateRelatedTermsFromAllmodel(String input) {
+<span class="nc" id="L175">    aggregateRelatedTerms(input, props.getProperty(&quot;userHistoryLinkageType&quot;));</span>
+<span class="nc" id="L176">    aggregateRelatedTerms(input, props.getProperty(&quot;clickStreamLinkageType&quot;));</span>
+<span class="nc" id="L177">    aggregateRelatedTerms(input, props.getProperty(&quot;metadataLinkageType&quot;));</span>
+<span class="nc" id="L178">    aggregateRelatedTermsSWEET(input, props.getProperty(&quot;ontologyLinkageType&quot;));</span>
+
+<span class="nc" id="L180">    return termList.stream().collect(Collectors.groupingBy(w -&gt; w.term));</span>
+  }
+
+  public int getModelweight(String model) {
+<span class="nc bnc" id="L184" title="All 2 branches missed.">    if (model.equals(props.getProperty(&quot;userHistoryLinkageType&quot;))) {</span>
+<span class="nc" id="L185">      return Integer.parseInt(props.getProperty(&quot;userHistory_w&quot;));</span>
+    }
+
+<span class="nc bnc" id="L188" title="All 2 branches missed.">    if (model.equals(props.getProperty(&quot;clickStreamLinkageType&quot;))) {</span>
+<span class="nc" id="L189">      return Integer.parseInt(props.getProperty(&quot;clickStream_w&quot;));</span>
+    }
+
+<span class="nc bnc" id="L192" title="All 2 branches missed.">    if (model.equals(props.getProperty(&quot;metadataLinkageType&quot;))) {</span>
+<span class="nc" id="L193">      return Integer.parseInt(props.getProperty(&quot;metadata_w&quot;));</span>
+    }
+
+<span class="nc bnc" id="L196" title="All 2 branches missed.">    if (model.equals(props.getProperty(&quot;ontologyLinkageType&quot;))) {</span>
+<span class="nc" id="L197">      return Integer.parseInt(props.getProperty(&quot;ontology_w&quot;));</span>
+    }
+
+<span class="nc" id="L200">    return 999999;</span>
+  }
+
+  /**
+   * Method of extracting the related term from a comma string
+   *
+   * @param str   input string
+   * @param input query string
+   * @return related term contained in the input string
+   */
+  public String extractRelated(String str, String input) {
+<span class="nc" id="L211">    String[] strList = str.split(&quot;,&quot;);</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">    if (input.equals(strList[0])) {</span>
+<span class="nc" id="L213">      return strList[1];</span>
+    } else {
+<span class="nc" id="L215">      return strList[0];</span>
+    }
+  }
+
+  public void aggregateRelatedTerms(String input, String model) {
+    //get the first 10 related terms
+<span class="nc" id="L221">    SearchResponse usrhis = es.getClient().prepareSearch(props.getProperty(INDEX_NAME)).setTypes(model).setQuery(QueryBuilders.termQuery(&quot;keywords&quot;, input)).addSort(WEIGHT, SortOrder.DESC).setSize(11)</span>
+<span class="nc" id="L222">        .execute().actionGet();</span>
+
+<span class="nc" id="L224">    LOG.info(&quot;\n************************ {} results***************************&quot;, model);</span>
+<span class="nc bnc" id="L225" title="All 2 branches missed.">    for (SearchHit hit : usrhis.getHits().getHits()) {</span>
+<span class="nc" id="L226">      Map&lt;String, Object&gt; result = hit.getSource();</span>
+<span class="nc" id="L227">      String keywords = (String) result.get(&quot;keywords&quot;);</span>
+<span class="nc" id="L228">      String relatedKey = extractRelated(keywords, input);</span>
+
+<span class="nc bnc" id="L230" title="All 2 branches missed.">      if (!relatedKey.equals(input)) {</span>
+<span class="nc" id="L231">        LinkedTerm lTerm = new LinkedTerm(relatedKey, (double) result.get(WEIGHT), model);</span>
+<span class="nc" id="L232">        LOG.info(&quot;( {} {} )&quot;, relatedKey, (double) result.get(WEIGHT));</span>
+<span class="nc" id="L233">        termList.add(lTerm);</span>
+      }
+
+    }
+<span class="nc" id="L237">  }</span>
+
+  /**
+   * Method of querying related terms from ontology
+   *
+   * @param input input query
+   * @param model source name
+   */
+  public void aggregateRelatedTermsSWEET(String input, String model) {
+<span class="nc" id="L246">    SearchResponse usrhis = es.getClient().prepareSearch(props.getProperty(INDEX_NAME)).setTypes(model).setQuery(QueryBuilders.termQuery(&quot;concept_A&quot;, input)).addSort(WEIGHT, SortOrder.DESC)</span>
+<span class="nc" id="L247">        .setSize(11).execute().actionGet();</span>
+<span class="nc" id="L248">    LOG.info(&quot;\n************************ {} results***************************&quot;, model);</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">    for (SearchHit hit : usrhis.getHits().getHits()) {</span>
+<span class="nc" id="L250">      Map&lt;String, Object&gt; result = hit.getSource();</span>
+<span class="nc" id="L251">      String conceptB = (String) result.get(&quot;concept_B&quot;);</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">      if (!conceptB.equals(input)) {</span>
+<span class="nc" id="L253">        LinkedTerm lTerm = new LinkedTerm(conceptB, (double) result.get(WEIGHT), model);</span>
+<span class="nc" id="L254">        LOG.info(&quot;( {} {} )&quot;, conceptB, (double) result.get(WEIGHT));</span>
+<span class="nc" id="L255">        termList.add(lTerm);</span>
+      }
+    }
+<span class="nc" id="L258">  }</span>
+
+  /**
+   * Method of sorting a map by value
+   *
+   * @param passedMap input map
+   * @return sorted map
+   */
+  public Map&lt;String, Double&gt; sortMapByValue(Map&lt;String, Double&gt; passedMap) {
+<span class="nc" id="L267">    List&lt;String&gt; mapKeys = new ArrayList&lt;&gt;(passedMap.keySet());</span>
+<span class="nc" id="L268">    List&lt;Double&gt; mapValues = new ArrayList&lt;&gt;(passedMap.values());</span>
+<span class="nc" id="L269">    Collections.sort(mapValues, Collections.reverseOrder());</span>
+<span class="nc" id="L270">    Collections.sort(mapKeys, Collections.reverseOrder());</span>
+
+<span class="nc" id="L272">    LinkedHashMap&lt;String, Double&gt; sortedMap = new LinkedHashMap&lt;&gt;();</span>
+
+<span class="nc" id="L274">    Iterator&lt;Double&gt; valueIt = mapValues.iterator();</span>
+<span class="nc bnc" id="L275" title="All 2 branches missed.">    while (valueIt.hasNext()) {</span>
+<span class="nc" id="L276">      Object val = valueIt.next();</span>
+<span class="nc" id="L277">      Iterator&lt;String&gt; keyIt = mapKeys.iterator();</span>
+
+<span class="nc bnc" id="L279" title="All 2 branches missed.">      while (keyIt.hasNext()) {</span>
+<span class="nc" id="L280">        Object key = keyIt.next();</span>
+<span class="nc" id="L281">        String comp1 = passedMap.get(key).toString();</span>
+<span class="nc" id="L282">        String comp2 = val.toString();</span>
+
+<span class="nc bnc" id="L284" title="All 2 branches missed.">        if (comp1.equals(comp2)) {</span>
+<span class="nc" id="L285">          passedMap.remove(key);</span>
+<span class="nc" id="L286">          mapKeys.remove(key);</span>
+<span class="nc" id="L287">          sortedMap.put((String) key, (Double) val);</span>
+<span class="nc" id="L288">          break;</span>
+        }
+
+<span class="nc" id="L291">      }</span>
+
+<span class="nc" id="L293">    }</span>
+<span class="nc" id="L294">    return sortedMap;</span>
+  }
+
+  /**
+   * Method of converting hashmap to JSON
+   *
+   * @param word        input query
+   * @param wordweights a map from related terms to weights
+   * @return converted JSON object
+   */
+  private JsonObject mapToJson(Map&lt;String, Double&gt; wordweights) {
+<span class="nc" id="L305">    Gson gson = new Gson();</span>
+<span class="nc" id="L306">    JsonObject json = new JsonObject();</span>
+<span class="nc" id="L307">    List&lt;JsonObject&gt; nodes = new ArrayList&lt;&gt;();</span>
+
+<span class="nc bnc" id="L309" title="All 2 branches missed.">    for (Entry&lt;String, Double&gt; entry : wordweights.entrySet()) {</span>
+<span class="nc" id="L310">      JsonObject node = new JsonObject();</span>
+<span class="nc" id="L311">      String key = entry.getKey();</span>
+<span class="nc" id="L312">      Double value = entry.getValue();</span>
+<span class="nc" id="L313">      node.addProperty(&quot;word&quot;, key);</span>
+<span class="nc" id="L314">      node.addProperty(&quot;weight&quot;, value);</span>
+<span class="nc" id="L315">      nodes.add(node);</span>
+<span class="nc" id="L316">    }</span>
+
+<span class="nc" id="L318">    JsonElement nodesElement = gson.toJsonTree(nodes);</span>
+<span class="nc" id="L319">    json.add(&quot;ontology&quot;, nodesElement);</span>
+
+<span class="nc" id="L321">    return json;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

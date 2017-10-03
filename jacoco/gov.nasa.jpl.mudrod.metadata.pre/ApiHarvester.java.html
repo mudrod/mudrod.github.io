@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ApiHarvester.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.metadata.pre</a> &gt; <span class="el_source">ApiHarvester.java</span></div><h1>ApiHarvester.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.metadata.pre;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import gov.nasa.jpl.mudrod.discoveryengine.DiscoveryStepAbstract;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+import gov.nasa.jpl.mudrod.utils.HttpRequest;
+import org.apache.commons.io.IOUtils;
+import org.elasticsearch.action.index.IndexRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.util.Properties;
+
+/**
+ * ClassName: ApiHarvester Function: Harvest metadata from PO.DAACweb service.
+ */
+public class ApiHarvester extends DiscoveryStepAbstract {
+
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L39">  private static final Logger LOG = LoggerFactory.getLogger(ApiHarvester.class);</span>
+
+  /**
+   * Creates a new instance of ApiHarvester.
+   *
+   * @param props the Mudrod configuration
+   * @param es    the Elasticsearch drive
+   * @param spark the spark driver
+   */
+  public ApiHarvester(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L49">    super(props, es, spark);</span>
+<span class="nc" id="L50">  }</span>
+
+  @Override
+  public Object execute() {
+<span class="nc" id="L54">    LOG.info(&quot;Starting Metadata harvesting.&quot;);</span>
+<span class="nc" id="L55">    startTime = System.currentTimeMillis();</span>
+    //remove old metadata from ES
+<span class="nc" id="L57">    es.deleteType(props.getProperty(MudrodConstants.ES_INDEX_NAME), props.getProperty(MudrodConstants.RAW_METADATA_TYPE));</span>
+    //harvest new metadata using PO.DAAC web services
+<span class="nc" id="L59">    harvestMetadatafromWeb();</span>
+<span class="nc" id="L60">    es.createBulkProcessor();</span>
+<span class="nc" id="L61">    addMetadataMapping();</span>
+<span class="nc" id="L62">    importToES();</span>
+<span class="nc" id="L63">    es.destroyBulkProcessor();</span>
+<span class="nc" id="L64">    endTime = System.currentTimeMillis();</span>
+<span class="nc" id="L65">    es.refreshIndex();</span>
+<span class="nc" id="L66">    LOG.info(&quot;Metadata harvesting completed. Time elapsed: {}&quot;, (endTime - startTime) / 1000);</span>
+<span class="nc" id="L67">    return null;</span>
+  }
+
+  /**
+   * addMetadataMapping: Add mapping to index metadata in Elasticsearch. Please
+   * invoke this method before import metadata to Elasticsearch.
+   */
+  public void addMetadataMapping() {
+<span class="nc" id="L75">    String mappingJson = &quot;{\r\n   \&quot;dynamic_templates\&quot;: &quot; + &quot;[\r\n      &quot; + &quot;{\r\n         \&quot;strings\&quot;: &quot; + &quot;{\r\n            \&quot;match_mapping_type\&quot;: \&quot;string\&quot;,&quot;</span>
+        + &quot;\r\n            \&quot;mapping\&quot;: {\r\n               \&quot;type\&quot;: \&quot;text\&quot;,&quot; + &quot;\r\n               \&quot;fielddata\&quot;: true,&quot; + &quot;\r\n               \&quot;analyzer\&quot;: \&quot;english\&quot;,&quot;
+        + &quot;\r\n            \&quot;fields\&quot;: {\r\n               \&quot;raw\&quot;: {&quot; + &quot;\r\n               \&quot;type\&quot;: \&quot;string\&quot;,&quot; + &quot;\r\n               \&quot;index\&quot;: \&quot;not_analyzed\&quot;&quot; + &quot;\r\n            }&quot;
+        + &quot;\r\n         }\r\n &quot; + &quot;\r\n            }&quot; + &quot;\r\n         }\r\n      }\r\n   ]\r\n}&quot;;
+
+<span class="nc" id="L80">    es.getClient().admin().indices().preparePutMapping(props.getProperty(MudrodConstants.ES_INDEX_NAME)).setType(props.getProperty(MudrodConstants.RAW_METADATA_TYPE)).setSource(mappingJson).execute()</span>
+<span class="nc" id="L81">        .actionGet();</span>
+<span class="nc" id="L82">  }</span>
+
+  /**
+   * importToES: Index metadata into elasticsearch from local file directory.
+   * Please make sure metadata have been harvest from web service before
+   * invoking this method.
+   */
+  private void importToES() {
+<span class="nc" id="L90">    File directory = new File(props.getProperty(MudrodConstants.RAW_METADATA_PATH));</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">    if(!directory.exists())</span>
+<span class="nc" id="L92">      directory.mkdir();</span>
+<span class="nc" id="L93">    File[] fList = directory.listFiles();</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">    for (File file : fList) {</span>
+      InputStream is;
+      try {
+<span class="nc" id="L97">        is = new FileInputStream(file);</span>
+<span class="nc" id="L98">        importSingleFileToES(is);</span>
+<span class="nc" id="L99">      } catch (FileNotFoundException e) {</span>
+<span class="nc" id="L100">        LOG.error(&quot;Error finding file!&quot;, e);</span>
+<span class="nc" id="L101">      }</span>
+
+    }
+<span class="nc" id="L104">  }</span>
+
+  private void importSingleFileToES(InputStream is) {
+    try {
+<span class="nc" id="L108">      String jsonTxt = IOUtils.toString(is);</span>
+<span class="nc" id="L109">      JsonParser parser = new JsonParser();</span>
+<span class="nc" id="L110">      JsonElement item = parser.parse(jsonTxt);</span>
+<span class="nc" id="L111">      IndexRequest ir = new IndexRequest(props.getProperty(MudrodConstants.ES_INDEX_NAME), props.getProperty(MudrodConstants.RAW_METADATA_TYPE)).source(item.toString());</span>
+<span class="nc" id="L112">      es.getBulkProcessor().add(ir);</span>
+<span class="nc" id="L113">    } catch (IOException e) {</span>
+<span class="nc" id="L114">      LOG.error(&quot;Error indexing metadata record!&quot;, e);</span>
+<span class="nc" id="L115">    }</span>
+<span class="nc" id="L116">  }</span>
+
+  /**
+   * harvestMetadatafromWeb: Harvest metadata from PO.DAAC web service.
+   */
+  private void harvestMetadatafromWeb() {
+<span class="nc" id="L122">    LOG.info(&quot;Metadata download started.&quot;);</span>
+<span class="nc" id="L123">    int startIndex = 0;</span>
+<span class="nc" id="L124">    int doc_length = 0;</span>
+<span class="nc" id="L125">    JsonParser parser = new JsonParser();</span>
+    do {
+<span class="nc" id="L127">      String searchAPI = &quot;https://podaac.jpl.nasa.gov/api/dataset?startIndex=&quot; + Integer.toString(startIndex) + &quot;&amp;entries=10&amp;sortField=Dataset-AllTimePopularity&amp;sortOrder=asc&amp;id=&amp;value=&amp;search=&quot;;</span>
+<span class="nc" id="L128">      HttpRequest http = new HttpRequest();</span>
+<span class="nc" id="L129">      String response = http.getRequest(searchAPI);</span>
+
+<span class="nc" id="L131">      JsonElement json = parser.parse(response);</span>
+<span class="nc" id="L132">      JsonObject responseObject = json.getAsJsonObject();</span>
+<span class="nc" id="L133">      JsonArray docs = responseObject.getAsJsonObject(&quot;response&quot;).getAsJsonArray(&quot;docs&quot;);</span>
+
+<span class="nc" id="L135">      doc_length = docs.size();</span>
+
+<span class="nc" id="L137">      File file = new File(props.getProperty(MudrodConstants.RAW_METADATA_PATH));</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">      if (!file.exists()) {</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        if (file.mkdir()) {</span>
+<span class="nc" id="L140">          LOG.info(&quot;Directory is created!&quot;);</span>
+        } else {
+<span class="nc" id="L142">          LOG.error(&quot;Failed to create directory!&quot;);</span>
+        }
+      }
+<span class="nc bnc" id="L145" title="All 2 branches missed.">      for (int i = 0; i &lt; doc_length; i++) {</span>
+<span class="nc" id="L146">        JsonElement item = docs.get(i);</span>
+<span class="nc" id="L147">        int docId = startIndex + i;</span>
+<span class="nc" id="L148">        File itemfile = new File(props.getProperty(MudrodConstants.RAW_METADATA_PATH) + &quot;/&quot; + docId + &quot;.json&quot;);</span>
+
+<span class="nc" id="L150">        try (FileWriter fw = new FileWriter(itemfile.getAbsoluteFile()); BufferedWriter bw = new BufferedWriter(fw);) {</span>
+<span class="nc" id="L151">          itemfile.createNewFile();</span>
+<span class="nc" id="L152">          bw.write(item.toString());</span>
+<span class="nc" id="L153">        } catch (IOException e) {</span>
+<span class="nc" id="L154">          LOG.error(&quot;Error writing metadata to local file!&quot;, e);</span>
+<span class="nc" id="L155">        }</span>
+      }
+
+<span class="nc" id="L158">      startIndex += 10;</span>
+
+      try {
+<span class="nc" id="L161">        Thread.sleep(100);</span>
+<span class="nc" id="L162">      } catch (InterruptedException e) {</span>
+<span class="nc" id="L163">        LOG.error(&quot;Error entering Elasticsearch Mappings!&quot;, e);</span>
+<span class="nc" id="L164">        Thread.currentThread().interrupt();</span>
+<span class="nc" id="L165">      }</span>
+
+<span class="nc bnc" id="L167" title="All 2 branches missed.">    } while (doc_length != 0);</span>
+    
+<span class="nc" id="L169">    LOG.info(&quot;Metadata downloading finished&quot;);</span>
+<span class="nc" id="L170">  }</span>
+
+  @Override
+  public Object execute(Object o) {
+<span class="nc" id="L174">    return null;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

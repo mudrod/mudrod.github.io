@@ -1,0 +1,573 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ESDriver.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.driver</a> &gt; <span class="el_source">ESDriver.java</span></div><h1>ESDriver.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.driver;
+
+import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
+import com.google.gson.GsonBuilder;
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+import gov.nasa.jpl.mudrod.main.MudrodEngine;
+import gov.nasa.jpl.mudrod.utils.ESTransportClient;
+import org.apache.commons.lang.StringUtils;
+import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
+import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse.AnalyzeToken;
+import org.elasticsearch.action.admin.indices.get.GetIndexRequest;
+import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
+import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
+import org.elasticsearch.action.bulk.BackoffPolicy;
+import org.elasticsearch.action.bulk.BulkProcessor;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.delete.DeleteRequest;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchType;
+import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.client.Client;
+import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.cluster.metadata.MappingMetaData;
+import org.elasticsearch.common.collect.ImmutableOpenMap;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.common.unit.ByteSizeUnit;
+import org.elasticsearch.common.unit.ByteSizeValue;
+import org.elasticsearch.common.unit.Fuzziness;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.index.query.MatchAllQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.node.Node;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.suggest.Suggest;
+import org.elasticsearch.search.suggest.SuggestBuilder;
+import org.elasticsearch.search.suggest.SuggestBuilders;
+import org.elasticsearch.search.suggest.completion.CompletionSuggestionBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.net.InetAddress;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+
+/**
+ * Driver implementation for all Elasticsearch functionality.
+ */
+public class ESDriver implements Serializable {
+
+<span class="nc" id="L79">  private static final Logger LOG = LoggerFactory.getLogger(ESDriver.class);</span>
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L81">  private transient Client client = null;</span>
+<span class="nc" id="L82">  private transient Node node = null;</span>
+<span class="nc" id="L83">  private transient BulkProcessor bulkProcessor = null;</span>
+
+  /**
+   * Default constructor for this class. To load client configuration call
+   * substantiated constructor.
+   */
+<span class="nc" id="L89">  public ESDriver() {</span>
+    // Default constructor, to load configuration call ESDriver(props)
+<span class="nc" id="L91">  }</span>
+
+  /**
+   * Substantiated constructor which accepts a {@link java.util.Properties}
+   *
+   * @param props a populated properties object.
+   */
+<span class="nc" id="L98">  public ESDriver(Properties props) {</span>
+    try {
+<span class="nc" id="L100">      setClient(makeClient(props));</span>
+<span class="nc" id="L101">    } catch (IOException e) {</span>
+<span class="nc" id="L102">      LOG.error(&quot;Error whilst constructing Elastcisearch client.&quot;, e);</span>
+<span class="nc" id="L103">    }</span>
+<span class="nc" id="L104">  }</span>
+
+  public void createBulkProcessor() {
+<span class="nc" id="L107">    LOG.debug(&quot;Creating BulkProcessor with maxBulkDocs={}, maxBulkLength={}&quot;, 1000, 2500500);</span>
+<span class="nc" id="L108">    setBulkProcessor(BulkProcessor.builder(getClient(), new BulkProcessor.Listener() {</span>
+      @Override
+      public void beforeBulk(long executionId, BulkRequest request) {
+<span class="nc" id="L111">        LOG.debug(&quot;ESDriver#createBulkProcessor @Override #beforeBulk is not implemented yet!&quot;);</span>
+<span class="nc" id="L112">      }</span>
+
+      @Override
+      public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
+<span class="nc" id="L116">        LOG.debug(&quot;ESDriver#createBulkProcessor @Override #afterBulk is not implemented yet!&quot;);</span>
+<span class="nc" id="L117">      }</span>
+
+      @Override
+      public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
+<span class="nc" id="L121">        LOG.error(&quot;Bulk request has failed!&quot;);</span>
+<span class="nc" id="L122">        throw new RuntimeException(&quot;Caught exception in bulk: &quot; + request.getDescription() + &quot;, failure: &quot; + failure, failure);</span>
+      }
+<span class="nc" id="L124">    }).setBulkActions(1000).setBulkSize(new ByteSizeValue(2500500, ByteSizeUnit.GB)).setBackoffPolicy(BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(100), 10)).setConcurrentRequests(1)</span>
+<span class="nc" id="L125">        .build());</span>
+<span class="nc" id="L126">  }</span>
+
+  public void destroyBulkProcessor() {
+    try {
+<span class="nc" id="L130">      getBulkProcessor().awaitClose(20, TimeUnit.MINUTES);</span>
+<span class="nc" id="L131">      setBulkProcessor(null);</span>
+<span class="nc" id="L132">      refreshIndex();</span>
+<span class="nc" id="L133">    } catch (InterruptedException e) {</span>
+<span class="nc" id="L134">      LOG.error(&quot;Error destroying the Bulk Processor.&quot;, e);</span>
+<span class="nc" id="L135">    }</span>
+<span class="nc" id="L136">  }</span>
+
+  public void putMapping(String indexName, String settingsJson, String mappingJson) throws IOException {
+
+<span class="nc" id="L140">    boolean exists = getClient().admin().indices().prepareExists(indexName).execute().actionGet().isExists();</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">    if (exists) {</span>
+<span class="nc" id="L142">      return;</span>
+    }
+
+<span class="nc" id="L145">    getClient().admin().indices().prepareCreate(indexName).setSettings(Settings.builder().loadFromSource(settingsJson)).execute().actionGet();</span>
+<span class="nc" id="L146">    getClient().admin().indices().preparePutMapping(indexName).setType(&quot;_default_&quot;).setSource(mappingJson).execute().actionGet();</span>
+<span class="nc" id="L147">  }</span>
+
+  public String customAnalyzing(String indexName, String str) throws InterruptedException, ExecutionException {
+<span class="nc" id="L150">    return this.customAnalyzing(indexName, &quot;cody&quot;, str);</span>
+  }
+
+  public String customAnalyzing(String indexName, String analyzer, String str) throws InterruptedException, ExecutionException {
+<span class="nc" id="L154">    String[] strList = str.toLowerCase().split(&quot;,&quot;);</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">    for (int i = 0; i &lt; strList.length; i++) {</span>
+<span class="nc" id="L156">      String tmp = &quot;&quot;;</span>
+<span class="nc" id="L157">      AnalyzeResponse r = client.admin().indices().prepareAnalyze(strList[i]).setIndex(indexName).setAnalyzer(analyzer).execute().get();</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">      for (AnalyzeToken token : r.getTokens()) {</span>
+<span class="nc" id="L159">        tmp += token.getTerm() + &quot; &quot;;</span>
+<span class="nc" id="L160">      }</span>
+<span class="nc" id="L161">      strList[i] = tmp.trim();</span>
+    }
+<span class="nc" id="L163">    return String.join(&quot;,&quot;, strList);</span>
+  }
+
+  public List&lt;String&gt; customAnalyzing(String indexName, List&lt;String&gt; list) throws InterruptedException, ExecutionException {
+<span class="nc bnc" id="L167" title="All 2 branches missed.">    if (list == null) {</span>
+<span class="nc" id="L168">      return list;</span>
+    }
+<span class="nc" id="L170">    int size = list.size();</span>
+<span class="nc" id="L171">    List&lt;String&gt; customlist = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">    for (int i = 0; i &lt; size; i++) {</span>
+<span class="nc" id="L173">      customlist.add(this.customAnalyzing(indexName, list.get(i)));</span>
+    }
+
+<span class="nc" id="L176">    return customlist;</span>
+  }
+
+  public void deleteAllByQuery(String index, String type, QueryBuilder query) {
+<span class="nc" id="L180">    createBulkProcessor();</span>
+<span class="nc" id="L181">    SearchResponse scrollResp = getClient().prepareSearch(index).setSearchType(SearchType.QUERY_AND_FETCH).setTypes(type).setScroll(new TimeValue(60000)).setQuery(query).setSize(10000).execute()</span>
+<span class="nc" id="L182">        .actionGet();</span>
+
+    while (true) {
+<span class="nc bnc" id="L185" title="All 2 branches missed.">      for (SearchHit hit : scrollResp.getHits().getHits()) {</span>
+<span class="nc" id="L186">        DeleteRequest deleteRequest = new DeleteRequest(index, type, hit.getId());</span>
+<span class="nc" id="L187">        getBulkProcessor().add(deleteRequest);</span>
+      }
+
+<span class="nc" id="L190">      scrollResp = getClient().prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(600000)).execute().actionGet();</span>
+<span class="nc bnc" id="L191" title="All 2 branches missed.">      if (scrollResp.getHits().getHits().length == 0) {</span>
+<span class="nc" id="L192">        break;</span>
+      }
+
+    }
+<span class="nc" id="L196">    destroyBulkProcessor();</span>
+<span class="nc" id="L197">  }</span>
+
+  public void deleteType(String index, String type) {
+<span class="nc" id="L200">    this.deleteAllByQuery(index, type, QueryBuilders.matchAllQuery());</span>
+<span class="nc" id="L201">  }</span>
+
+  public List&lt;String&gt; getTypeListWithPrefix(Object object, Object object2) {
+<span class="nc" id="L204">    ArrayList&lt;String&gt; typeList = new ArrayList&lt;&gt;();</span>
+    GetMappingsResponse res;
+    try {
+<span class="nc" id="L207">      res = getClient().admin().indices().getMappings(new GetMappingsRequest().indices(object.toString())).get();</span>
+<span class="nc" id="L208">      ImmutableOpenMap&lt;String, MappingMetaData&gt; mapping = res.mappings().get(object.toString());</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">      for (ObjectObjectCursor&lt;String, MappingMetaData&gt; c : mapping) {</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">        if (c.key.startsWith(object2.toString())) {</span>
+<span class="nc" id="L211">          typeList.add(c.key);</span>
+        }
+<span class="nc" id="L213">      }</span>
+<span class="nc" id="L214">    } catch (InterruptedException | ExecutionException e) {</span>
+<span class="nc" id="L215">      LOG.error(&quot;Error whilst obtaining type list from Elasticsearch mappings.&quot;, e);</span>
+<span class="nc" id="L216">    }</span>
+<span class="nc" id="L217">    return typeList;</span>
+  }
+
+  public List&lt;String&gt; getIndexListWithPrefix(Object object) {
+
+<span class="nc" id="L222">    LOG.info(&quot;Retrieving index list with prefix: {}&quot;, object.toString());</span>
+<span class="nc" id="L223">    String[] indices = client.admin().indices().getIndex(new GetIndexRequest()).actionGet().getIndices();</span>
+
+<span class="nc" id="L225">    ArrayList&lt;String&gt; indexList = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L226">    int length = indices.length;</span>
+<span class="nc bnc" id="L227" title="All 2 branches missed.">    for (int i = 0; i &lt; length; i++) {</span>
+<span class="nc" id="L228">      String indexName = indices[i];</span>
+<span class="nc bnc" id="L229" title="All 2 branches missed.">      if (indexName.startsWith(object.toString())) {</span>
+<span class="nc" id="L230">        indexList.add(indexName);</span>
+      }
+    }
+
+<span class="nc" id="L234">    return indexList;</span>
+  }
+
+  public String searchByQuery(String index, String type, String query) throws IOException, InterruptedException, ExecutionException {
+<span class="nc" id="L238">    return searchByQuery(index, type, query, false);</span>
+  }
+
+  @SuppressWarnings(&quot;unchecked&quot;)
+  public String searchByQuery(String index, String type, String query, Boolean bDetail) throws IOException, InterruptedException, ExecutionException {
+<span class="nc" id="L243">    boolean exists = getClient().admin().indices().prepareExists(index).execute().actionGet().isExists();</span>
+<span class="nc bnc" id="L244" title="All 2 branches missed.">    if (!exists) {</span>
+<span class="nc" id="L245">      return null;</span>
+    }
+
+<span class="nc" id="L248">    QueryBuilder qb = QueryBuilders.queryStringQuery(query);</span>
+<span class="nc" id="L249">    SearchResponse response = getClient().prepareSearch(index).setTypes(type).setQuery(qb).setSize(500).execute().actionGet();</span>
+
+    // Map of K,V pairs where key is the field name from search result and value is the that should be returned for that field. Not always the same.
+<span class="nc" id="L252">    Map&lt;String, String&gt; fieldsToReturn = new HashMap&lt;&gt;();</span>
+
+<span class="nc" id="L254">    fieldsToReturn.put(&quot;Dataset-ShortName&quot;, &quot;Short Name&quot;);</span>
+<span class="nc" id="L255">    fieldsToReturn.put(&quot;Dataset-LongName&quot;, &quot;Long Name&quot;);</span>
+<span class="nc" id="L256">    fieldsToReturn.put(&quot;DatasetParameter-Topic&quot;, &quot;Topic&quot;);</span>
+<span class="nc" id="L257">    fieldsToReturn.put(&quot;Dataset-Description&quot;, &quot;Dataset-Description&quot;);</span>
+<span class="nc" id="L258">    fieldsToReturn.put(&quot;DatasetCitation-ReleaseDateLong&quot;, &quot;Release Date&quot;);</span>
+
+<span class="nc bnc" id="L260" title="All 2 branches missed.">    if (bDetail) {</span>
+<span class="nc" id="L261">      fieldsToReturn.put(&quot;DatasetPolicy-DataFormat&quot;, &quot;DataFormat&quot;);</span>
+<span class="nc" id="L262">      fieldsToReturn.put(&quot;Dataset-Doi&quot;, &quot;Dataset-Doi&quot;);</span>
+<span class="nc" id="L263">      fieldsToReturn.put(&quot;Dataset-ProcessingLevel&quot;, &quot;Processing Level&quot;);</span>
+<span class="nc" id="L264">      fieldsToReturn.put(&quot;DatasetCitation-Version&quot;, &quot;Version&quot;);</span>
+<span class="nc" id="L265">      fieldsToReturn.put(&quot;DatasetSource-Sensor-ShortName&quot;, &quot;DatasetSource-Sensor-ShortName&quot;);</span>
+<span class="nc" id="L266">      fieldsToReturn.put(&quot;DatasetProject-Project-ShortName&quot;, &quot;DatasetProject-Project-ShortName&quot;);</span>
+<span class="nc" id="L267">      fieldsToReturn.put(&quot;DatasetParameter-Category&quot;, &quot;DatasetParameter-Category&quot;);</span>
+<span class="nc" id="L268">      fieldsToReturn.put(&quot;DatasetLocationPolicy-BasePath&quot;, &quot;DatasetLocationPolicy-BasePath&quot;);</span>
+<span class="nc" id="L269">      fieldsToReturn.put(&quot;DatasetParameter-Variable-Full&quot;, &quot;DatasetParameter-Variable-Full&quot;);</span>
+<span class="nc" id="L270">      fieldsToReturn.put(&quot;DatasetParameter-Term-Full&quot;, &quot;DatasetParameter-Term-Full&quot;);</span>
+<span class="nc" id="L271">      fieldsToReturn.put(&quot;DatasetParameter-VariableDetail&quot;, &quot;DatasetParameter-VariableDetail&quot;);</span>
+
+<span class="nc" id="L273">      fieldsToReturn.put(&quot;DatasetRegion-Region&quot;, &quot;Region&quot;);</span>
+<span class="nc" id="L274">      fieldsToReturn.put(&quot;DatasetCoverage-NorthLat&quot;, &quot;NorthLat&quot;);</span>
+<span class="nc" id="L275">      fieldsToReturn.put(&quot;DatasetCoverage-SouthLat&quot;, &quot;SouthLat&quot;);</span>
+<span class="nc" id="L276">      fieldsToReturn.put(&quot;DatasetCoverage-WestLon&quot;, &quot;WestLon&quot;);</span>
+<span class="nc" id="L277">      fieldsToReturn.put(&quot;DatasetCoverage-EastLon&quot;, &quot;EastLon&quot;);</span>
+<span class="nc" id="L278">      fieldsToReturn.put(&quot;DatasetCoverage-StartTimeLong-Long&quot;, &quot;DatasetCoverage-StartTimeLong-Long&quot;);</span>
+<span class="nc" id="L279">      fieldsToReturn.put(&quot;Dataset-DatasetCoverage-StopTimeLong&quot;, &quot;Dataset-DatasetCoverage-StopTimeLong&quot;);</span>
+
+<span class="nc" id="L281">      fieldsToReturn.put(&quot;Dataset-TemporalResolution&quot;, &quot;Dataset-TemporalResolution&quot;);</span>
+<span class="nc" id="L282">      fieldsToReturn.put(&quot;Dataset-TemporalRepeat&quot;, &quot;Dataset-TemporalRepeat&quot;);</span>
+<span class="nc" id="L283">      fieldsToReturn.put(&quot;Dataset-LatitudeResolution&quot;, &quot;Dataset-LatitudeResolution&quot;);</span>
+<span class="nc" id="L284">      fieldsToReturn.put(&quot;Dataset-LongitudeResolution&quot;, &quot;Dataset-LongitudeResolution&quot;);</span>
+<span class="nc" id="L285">      fieldsToReturn.put(&quot;Dataset-AcrossTrackResolution&quot;, &quot;Dataset-AcrossTrackResolution&quot;);</span>
+<span class="nc" id="L286">      fieldsToReturn.put(&quot;Dataset-AlongTrackResolution&quot;, &quot;Dataset-AlongTrackResolution&quot;);</span>
+    }
+
+<span class="nc" id="L289">    List&lt;Map&lt;String, Object&gt;&gt; searchResults = new ArrayList&lt;&gt;();</span>
+
+<span class="nc bnc" id="L291" title="All 2 branches missed.">    for (SearchHit hit : response.getHits().getHits()) {</span>
+<span class="nc" id="L292">      Map&lt;String, Object&gt; source = hit.getSource();</span>
+
+<span class="nc" id="L294">      Map&lt;String, Object&gt; searchResult = source.entrySet().stream().filter(entry -&gt; fieldsToReturn.keySet().contains(entry.getKey()))</span>
+<span class="nc" id="L295">          .collect(Collectors.toMap(entry -&gt; fieldsToReturn.get(entry.getKey()), Entry::getValue));</span>
+
+      // searchResult is now a map where the key = value from fieldsToReturn and the value = value from search result
+
+      // Some results require special handling/formatting:
+      // Release Date formatting
+<span class="nc" id="L301">      LocalDate releaseDate = Instant.ofEpochMilli(Long.parseLong(((ArrayList&lt;String&gt;) searchResult.get(&quot;Release Date&quot;)).get(0))).atZone(ZoneId.of(&quot;Z&quot;)).toLocalDate();</span>
+<span class="nc" id="L302">      searchResult.put(&quot;Release Date&quot;, releaseDate.format(DateTimeFormatter.ISO_DATE));</span>
+
+<span class="nc bnc" id="L304" title="All 2 branches missed.">      if (bDetail) {</span>
+
+        // DataFormat value, translate RAW to BINARY
+<span class="nc bnc" id="L307" title="All 2 branches missed.">        if (&quot;RAW&quot;.equals(searchResult.get(&quot;DataFormat&quot;))) {</span>
+<span class="nc" id="L308">          searchResult.put(&quot;DataFormat&quot;, &quot;BINARY&quot;);</span>
+        }
+
+        // DatasetLocationPolicy-BasePath Should only contain ftp, http, or https URLs
+<span class="nc bnc" id="L312" title="All 4 branches missed.">        List&lt;String&gt; urls = ((List&lt;String&gt;) searchResult.get(&quot;DatasetLocationPolicy-BasePath&quot;)).stream().filter(url -&gt; url.startsWith(&quot;ftp&quot;) || url.startsWith(&quot;http&quot;)).collect(Collectors.toList());</span>
+<span class="nc" id="L313">        searchResult.put(&quot;DatasetLocationPolicy-BasePath&quot;, urls);</span>
+
+        // Time Span Formatting
+<span class="nc" id="L316">        LocalDate startDate = Instant.ofEpochMilli((Long) searchResult.get(&quot;DatasetCoverage-StartTimeLong-Long&quot;)).atZone(ZoneId.of(&quot;Z&quot;)).toLocalDate();</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">        LocalDate endDate = &quot;&quot;.equals(searchResult.get(&quot;Dataset-DatasetCoverage-StopTimeLong&quot;)) ?</span>
+            null :
+<span class="nc" id="L319">            Instant.ofEpochMilli(Long.parseLong(searchResult.get(&quot;Dataset-DatasetCoverage-StopTimeLong&quot;).toString())).atZone(ZoneId.of(&quot;Z&quot;)).toLocalDate();</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">        searchResult.put(&quot;Time Span&quot;, startDate.format(DateTimeFormatter.ISO_DATE) + &quot; to &quot; + (endDate == null ? &quot;Present&quot; : endDate.format(DateTimeFormatter.ISO_DATE)));</span>
+
+        // Temporal resolution can come from one of two fields
+<span class="nc bnc" id="L323" title="All 2 branches missed.">        searchResult.put(&quot;TemporalResolution&quot;, &quot;&quot;.equals(searchResult.get(&quot;Dataset-TemporalResolution&quot;)) ? searchResult.get(&quot;Dataset-TemporalRepeat&quot;) : searchResult.get(&quot;Dataset-TemporalResolution&quot;));</span>
+
+        // Special formatting for spatial resolution
+<span class="nc" id="L326">        String latResolution = (String) searchResult.get(&quot;Dataset-LatitudeResolution&quot;);</span>
+<span class="nc" id="L327">        String lonResolution = (String) searchResult.get(&quot;Dataset-LongitudeResolution&quot;);</span>
+<span class="nc bnc" id="L328" title="All 4 branches missed.">        if (!latResolution.isEmpty() &amp;&amp; !lonResolution.isEmpty()) {</span>
+<span class="nc" id="L329">          searchResult.put(&quot;SpatialResolution&quot;, latResolution + &quot; degrees (latitude) x &quot; + lonResolution + &quot; degrees (longitude)&quot;);</span>
+        } else {
+<span class="nc" id="L331">          String acrossResolution = (String) searchResult.get(&quot;Dataset-AcrossTrackResolution&quot;);</span>
+<span class="nc" id="L332">          String alonResolution = (String) searchResult.get(&quot;Dataset-AlongTrackResolution&quot;);</span>
+<span class="nc" id="L333">          double dAcrossResolution = Double.parseDouble(acrossResolution) / 1000;</span>
+<span class="nc" id="L334">          double dAlonResolution = Double.parseDouble(alonResolution) / 1000;</span>
+<span class="nc" id="L335">          searchResult.put(&quot;SpatialResolution&quot;, dAlonResolution + &quot; km (Along) x &quot; + dAcrossResolution + &quot; km (Across)&quot;);</span>
+        }
+
+        // Measurement is a list of hierarchies that goes Topic -&gt; Term -&gt; Variable -&gt; Variable Detail. Need to construct these hierarchies.
+<span class="nc" id="L339">        List&lt;List&lt;String&gt;&gt; measurements = buildMeasurementHierarchies((List&lt;String&gt;) searchResult.get(&quot;Topic&quot;), (List&lt;String&gt;) searchResult.get(&quot;DatasetParameter-Term-Full&quot;),</span>
+<span class="nc" id="L340">            (List&lt;String&gt;) searchResult.get(&quot;DatasetParameter-Variable-Full&quot;), (List&lt;String&gt;) searchResult.get(&quot;DatasetParameter-VariableDetail&quot;));</span>
+
+<span class="nc" id="L342">        searchResult.put(&quot;Measurements&quot;, measurements);</span>
+
+      }
+
+<span class="nc" id="L346">      searchResults.add(searchResult);</span>
+    }
+
+<span class="nc" id="L349">    Map&lt;String, List&lt;?&gt;&gt; pdResults = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L350">    pdResults.put(&quot;PDResults&quot;, searchResults);</span>
+
+<span class="nc" id="L352">    return new GsonBuilder().create().toJson(pdResults);</span>
+  }
+
+  /**
+   * Builds a List of Measurement Hierarchies given the individual source lists.
+   * The hierarchy is built from the element in the same position from each input list in the order: Topic -&gt; Term -&gt; Variable -&gt; VariableDetail
+   * &quot;None&quot; and blank strings are ignored. If, at any level, an element does not exist for that position or it is &quot;None&quot; or blank, that hierarchy is considered complete.
+   *
+   * For example, if the input is:
+   * &lt;pre&gt;
+   * topics = [&quot;Oceans&quot;, &quot;Oceans&quot;]
+   * terms = [&quot;Sea Surface Topography&quot;, &quot;Ocean Waves&quot;]
+   * variables = [&quot;Sea Surface Height&quot;, &quot;Significant Wave Height&quot;]
+   * variableDetails = [&quot;None&quot;, &quot;None&quot;]
+   * &lt;/pre&gt;
+   *
+   * The output would be:
+   * &lt;pre&gt;
+   *   [
+   *     [&quot;Oceans&quot;, &quot;Sea Surface Topography&quot;, &quot;Sea Surface Height&quot;],
+   *     [&quot;Oceans&quot;, &quot;Ocean Waves&quot;, &quot;Significant Wave Height&quot;]
+   *   ]
+   * &lt;/pre&gt;
+   *     Oceans &gt; Sea Surface Topography &gt; Sea Surface Height
+   *     Oceans &gt; Ocean Waves &gt; Significant Wave Height
+   *
+   * @param topics List of topics, the first element of a measurement
+   * @param terms List of terms, the second element of a measurement
+   * @param variables List of variables, the third element of a measurement
+   * @param variableDetails List of variable details, the fourth element of a measurement
+   *
+   * @return A List where each element is a single hierarchy (as a List) built from the provided input lists.
+   */
+  private List&lt;List&lt;String&gt;&gt; buildMeasurementHierarchies(List&lt;String&gt; topics, List&lt;String&gt; terms, List&lt;String&gt; variables, List&lt;String&gt; variableDetails) {
+
+<span class="nc" id="L387">    List&lt;List&lt;String&gt;&gt; measurements = new ArrayList&lt;&gt;();</span>
+
+<span class="nc bnc" id="L389" title="All 2 branches missed.">    for (int x = 0; x &lt; topics.size(); x++) {</span>
+<span class="nc" id="L390">      measurements.add(new ArrayList&lt;&gt;());</span>
+<span class="nc" id="L391">      measurements.get(x).add(topics.get(x));</span>
+      // Only add the next 'level' if we can
+<span class="nc bnc" id="L393" title="All 6 branches missed.">      if (x &lt; terms.size() &amp;&amp; !&quot;None&quot;.equalsIgnoreCase(terms.get(x)) &amp;&amp; StringUtils.isNotBlank(terms.get(x))) {</span>
+<span class="nc" id="L394">        measurements.get(x).add(terms.get(x));</span>
+<span class="nc bnc" id="L395" title="All 6 branches missed.">        if (x &lt; variables.size() &amp;&amp; !&quot;None&quot;.equalsIgnoreCase(variables.get(x)) &amp;&amp; StringUtils.isNotBlank(variables.get(x))) {</span>
+<span class="nc" id="L396">          measurements.get(x).add(variables.get(x));</span>
+<span class="nc bnc" id="L397" title="All 6 branches missed.">          if (x &lt; variableDetails.size() &amp;&amp; !&quot;None&quot;.equalsIgnoreCase(variableDetails.get(x)) &amp;&amp; StringUtils.isNotBlank(variableDetails.get(x))) {</span>
+<span class="nc" id="L398">            measurements.get(x).add(variableDetails.get(x));</span>
+          }
+        }
+      }
+    }
+
+<span class="nc" id="L404">    return measurements;</span>
+
+  }
+
+  public List&lt;String&gt; autoComplete(String index, String term) {
+<span class="nc" id="L409">    boolean exists = this.getClient().admin().indices().prepareExists(index).execute().actionGet().isExists();</span>
+<span class="nc bnc" id="L410" title="All 2 branches missed.">    if (!exists) {</span>
+<span class="nc" id="L411">      return new ArrayList&lt;&gt;();</span>
+    }
+
+<span class="nc" id="L414">    Set&lt;String&gt; suggestHS = new HashSet&lt;String&gt;();</span>
+<span class="nc" id="L415">    List&lt;String&gt; suggestList = new ArrayList&lt;&gt;();</span>
+
+    // please make sure that the completion field is configured in the ES mapping
+<span class="nc" id="L418">    CompletionSuggestionBuilder suggestionsBuilder = SuggestBuilders.completionSuggestion(&quot;Dataset-Metadata&quot;).prefix(term, Fuzziness.fromEdits(2)).size(100);</span>
+<span class="nc" id="L419">    SearchRequestBuilder suggestRequestBuilder = getClient().prepareSearch(index).suggest(new SuggestBuilder().addSuggestion(&quot;completeMe&quot;, suggestionsBuilder));</span>
+<span class="nc" id="L420">    SearchResponse sr = suggestRequestBuilder.setFetchSource(false).execute().actionGet();</span>
+
+<span class="nc" id="L422">    Iterator&lt;? extends Suggest.Suggestion.Entry.Option&gt; iterator = sr.getSuggest().getSuggestion(&quot;completeMe&quot;).iterator().next().getOptions().iterator();</span>
+
+<span class="nc bnc" id="L424" title="All 2 branches missed.">    while (iterator.hasNext()) {</span>
+<span class="nc" id="L425">      Suggest.Suggestion.Entry.Option next = iterator.next();</span>
+<span class="nc" id="L426">      String suggest = next.getText().string().toLowerCase();</span>
+<span class="nc" id="L427">      suggestList.add(suggest);</span>
+<span class="nc" id="L428">    }</span>
+
+<span class="nc" id="L430">    suggestHS.addAll(suggestList);</span>
+<span class="nc" id="L431">    suggestList.clear();</span>
+<span class="nc" id="L432">    suggestList.addAll(suggestHS);</span>
+<span class="nc" id="L433">    return suggestList;</span>
+  }
+
+  public void close() {
+<span class="nc" id="L437">    client.close();</span>
+<span class="nc" id="L438">  }</span>
+
+  public void refreshIndex() {
+<span class="nc" id="L441">    client.admin().indices().prepareRefresh().execute().actionGet();</span>
+<span class="nc" id="L442">  }</span>
+
+  /**
+   * Generates a TransportClient or NodeClient
+   *
+   * @param props a populated {@link java.util.Properties} object
+   * @return a constructed {@link org.elasticsearch.client.Client}
+   * @throws IOException if there is an error building the
+   *                     {@link org.elasticsearch.client.Client}
+   */
+  protected Client makeClient(Properties props) throws IOException {
+<span class="nc" id="L453">    String clusterName = props.getProperty(MudrodConstants.ES_CLUSTER);</span>
+<span class="nc" id="L454">    String hostsString = props.getProperty(MudrodConstants.ES_UNICAST_HOSTS);</span>
+<span class="nc" id="L455">    String[] hosts = hostsString.split(&quot;,&quot;);</span>
+<span class="nc" id="L456">    String portStr = props.getProperty(MudrodConstants.ES_TRANSPORT_TCP_PORT);</span>
+<span class="nc" id="L457">    int port = Integer.parseInt(portStr);</span>
+
+<span class="nc" id="L459">    Settings.Builder settingsBuilder = Settings.builder();</span>
+
+    // Set the cluster name and build the settings
+<span class="nc bnc" id="L462" title="All 2 branches missed.">    if (!clusterName.isEmpty())</span>
+<span class="nc" id="L463">      settingsBuilder.put(&quot;cluster.name&quot;, clusterName);</span>
+
+<span class="nc" id="L465">    settingsBuilder.put(&quot;http.type&quot;, &quot;netty3&quot;);</span>
+<span class="nc" id="L466">    settingsBuilder.put(&quot;transport.type&quot;, &quot;netty3&quot;);</span>
+
+<span class="nc" id="L468">    Settings settings = settingsBuilder.build();</span>
+
+<span class="nc" id="L470">    Client client = null;</span>
+
+    // Prefer TransportClient
+<span class="nc bnc" id="L473" title="All 4 branches missed.">    if (hosts != null &amp;&amp; port &gt; 1) {</span>
+<span class="nc" id="L474">      TransportClient transportClient = new ESTransportClient(settings);</span>
+<span class="nc bnc" id="L475" title="All 2 branches missed.">      for (String host : hosts)</span>
+<span class="nc" id="L476">        transportClient.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(host), port));</span>
+<span class="nc" id="L477">      client = transportClient;</span>
+<span class="nc bnc" id="L478" title="All 2 branches missed.">    } else if (clusterName != null) {</span>
+<span class="nc" id="L479">      node = new Node(settings);</span>
+<span class="nc" id="L480">      client = node.client();</span>
+    }
+
+<span class="nc" id="L483">    return client;</span>
+  }
+
+  /**
+   * Main method used to invoke the ESDriver implementation.
+   *
+   * @param args no arguments are required to invoke the Driver.
+   */
+  public static void main(String[] args) {
+<span class="nc" id="L492">    MudrodEngine mudrodEngine = new MudrodEngine();</span>
+<span class="nc" id="L493">    ESDriver es = new ESDriver(mudrodEngine.loadConfig());</span>
+<span class="nc" id="L494">    es.getTypeListWithPrefix(&quot;podaacsession&quot;, &quot;sessionstats&quot;);</span>
+<span class="nc" id="L495">  }</span>
+
+  /**
+   * @return the client
+   */
+  public Client getClient() {
+<span class="nc" id="L501">    return client;</span>
+  }
+
+  /**
+   * @param client the client to set
+   */
+  public void setClient(Client client) {
+<span class="nc" id="L508">    this.client = client;</span>
+<span class="nc" id="L509">  }</span>
+
+  /**
+   * @return the bulkProcessor
+   */
+  public BulkProcessor getBulkProcessor() {
+<span class="nc" id="L515">    return bulkProcessor;</span>
+  }
+
+  /**
+   * @param bulkProcessor the bulkProcessor to set
+   */
+  public void setBulkProcessor(BulkProcessor bulkProcessor) {
+<span class="nc" id="L522">    this.bulkProcessor = bulkProcessor;</span>
+<span class="nc" id="L523">  }</span>
+
+  public UpdateRequest generateUpdateRequest(String index, String type, String id, String field1, Object value1) {
+
+<span class="nc" id="L527">    UpdateRequest ur = null;</span>
+    try {
+<span class="nc" id="L529">      ur = new UpdateRequest(index, type, id).doc(jsonBuilder().startObject().field(field1, value1).endObject());</span>
+<span class="nc" id="L530">    } catch (IOException e) {</span>
+<span class="nc" id="L531">      LOG.error(&quot;Error whilst attempting to generate a new Update Request.&quot;, e);</span>
+<span class="nc" id="L532">    }</span>
+
+<span class="nc" id="L534">    return ur;</span>
+  }
+
+  public UpdateRequest generateUpdateRequest(String index, String type, String id, Map&lt;String, Object&gt; filedValueMap) {
+
+<span class="nc" id="L539">    UpdateRequest ur = null;</span>
+    try {
+<span class="nc" id="L541">      XContentBuilder builder = jsonBuilder().startObject();</span>
+<span class="nc bnc" id="L542" title="All 2 branches missed.">      for (Entry&lt;String, Object&gt; entry : filedValueMap.entrySet()) {</span>
+<span class="nc" id="L543">        String key = entry.getKey();</span>
+<span class="nc" id="L544">        builder.field(key, filedValueMap.get(key));</span>
+<span class="nc" id="L545">      }</span>
+<span class="nc" id="L546">      builder.endObject();</span>
+<span class="nc" id="L547">      ur = new UpdateRequest(index, type, id).doc(builder);</span>
+<span class="nc" id="L548">    } catch (IOException e) {</span>
+<span class="nc" id="L549">      LOG.error(&quot;Error whilst attempting to generate a new Update Request.&quot;, e);</span>
+<span class="nc" id="L550">    }</span>
+
+<span class="nc" id="L552">    return ur;</span>
+  }
+
+  public int getDocCount(String index, String... type) {
+<span class="nc" id="L556">    MatchAllQueryBuilder search = QueryBuilders.matchAllQuery();</span>
+<span class="nc" id="L557">    String[] indexArr = new String[] { index };</span>
+<span class="nc" id="L558">    return this.getDocCount(indexArr, type, search);</span>
+  }
+
+  public int getDocCount(String[] index, String[] type) {
+<span class="nc" id="L562">    MatchAllQueryBuilder search = QueryBuilders.matchAllQuery();</span>
+<span class="nc" id="L563">    return this.getDocCount(index, type, search);</span>
+  }
+
+  public int getDocCount(String[] index, String[] type, QueryBuilder filterSearch) {
+<span class="nc" id="L567">    SearchRequestBuilder countSrBuilder = getClient().prepareSearch(index).setTypes(type).setQuery(filterSearch).setSize(0);</span>
+<span class="nc" id="L568">    SearchResponse countSr = countSrBuilder.execute().actionGet();</span>
+<span class="nc" id="L569">    int docCount = (int) countSr.getHits().getTotalHits();</span>
+<span class="nc" id="L570">    return docCount;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

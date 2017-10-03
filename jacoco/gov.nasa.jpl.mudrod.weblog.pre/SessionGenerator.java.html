@@ -1,0 +1,453 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SessionGenerator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.pre</a> &gt; <span class="el_source">SessionGenerator.java</span></div><h1>SessionGenerator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.weblog.pre;
+
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+import gov.nasa.jpl.mudrod.weblog.structure.Session;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.function.FlatMapFunction;
+import org.apache.spark.api.java.function.Function2;
+import org.apache.spark.api.java.function.VoidFunction;
+import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.metrics.stats.Stats;
+import org.elasticsearch.search.aggregations.metrics.stats.StatsAggregationBuilder;
+import org.elasticsearch.search.sort.SortOrder;
+import org.joda.time.DateTime;
+import org.joda.time.Seconds;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.ISODateTimeFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.*;
+
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+
+/**
+ * Supports ability to generate user session by time threshold and referrer
+ */
+public class SessionGenerator extends LogAbstract {
+
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L58">  private static final Logger LOG = LoggerFactory.getLogger(SessionGenerator.class);</span>
+
+  public SessionGenerator(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L61">    super(props, es, spark);</span>
+<span class="nc" id="L62">  }</span>
+
+  @Override
+  public Object execute() {
+<span class="nc" id="L66">    LOG.info(&quot;Starting Session Generation.&quot;);</span>
+<span class="nc" id="L67">    startTime = System.currentTimeMillis();</span>
+<span class="nc" id="L68">    generateSession();</span>
+<span class="nc" id="L69">    endTime = System.currentTimeMillis();</span>
+<span class="nc" id="L70">    es.refreshIndex();</span>
+<span class="nc" id="L71">    LOG.info(&quot;Session generating complete. Time elapsed {} seconds.&quot;, (endTime - startTime) / 1000);</span>
+<span class="nc" id="L72">    return null;</span>
+  }
+
+  public void generateSession() {
+    try {
+<span class="nc" id="L77">      es.createBulkProcessor();</span>
+<span class="nc" id="L78">      genSessionByReferer(Integer.parseInt(props.getProperty(&quot;timegap&quot;)));</span>
+<span class="nc" id="L79">      es.destroyBulkProcessor();</span>
+
+<span class="nc" id="L81">      es.createBulkProcessor();</span>
+<span class="nc" id="L82">      combineShortSessions(Integer.parseInt(props.getProperty(&quot;timegap&quot;)));</span>
+<span class="nc" id="L83">      es.destroyBulkProcessor();</span>
+<span class="nc" id="L84">    } catch (ElasticsearchException e) {</span>
+<span class="nc" id="L85">      LOG.error(&quot;Error whilst executing bulk processor.&quot;, e);</span>
+<span class="nc" id="L86">    } catch (IOException e) {</span>
+<span class="nc" id="L87">      LOG.error(&quot;Error whilst reading configuration.&quot;, e);</span>
+<span class="nc" id="L88">    } catch (NumberFormatException e) {</span>
+<span class="nc" id="L89">      e.printStackTrace();</span>
+<span class="nc" id="L90">    } catch (InterruptedException e) {</span>
+<span class="nc" id="L91">      e.printStackTrace();</span>
+<span class="nc" id="L92">    }</span>
+<span class="nc" id="L93">  }</span>
+
+  public void genSessionByReferer(int timeThres) throws InterruptedException, IOException {
+<span class="nc" id="L96">    String processingType = props.getProperty(MudrodConstants.PROCESS_TYPE);</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">    if (processingType.equals(&quot;sequential&quot;)) {</span>
+<span class="nc" id="L98">      genSessionByRefererInSequential(timeThres);</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">    } else if (processingType.equals(&quot;parallel&quot;)) {</span>
+<span class="nc" id="L100">      genSessionByRefererInParallel(timeThres);</span>
+    }
+<span class="nc" id="L102">  }</span>
+
+  public void combineShortSessions(int timeThres) throws InterruptedException, IOException {
+<span class="nc" id="L105">    String processingType = props.getProperty(MudrodConstants.PROCESS_TYPE);</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">    if (processingType.equals(&quot;sequential&quot;)) {</span>
+<span class="nc" id="L107">      combineShortSessionsInSequential(timeThres);</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">    } else if (processingType.equals(&quot;parallel&quot;)) {</span>
+<span class="nc" id="L109">      combineShortSessionsInParallel(timeThres);</span>
+    }
+<span class="nc" id="L111">  }</span>
+
+  /**
+   * Method to generate session by time threshold and referrer
+   *
+   * @param timeThres value of time threshold (s)
+   * @throws ElasticsearchException ElasticsearchException
+   * @throws IOException            IOException
+   */
+  public void genSessionByRefererInSequential(int timeThres) throws ElasticsearchException, IOException {
+
+<span class="nc" id="L122">    Terms users = this.getUserTerms(this.cleanupType);</span>
+
+<span class="nc" id="L124">    int sessionCount = 0;</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">    for (Terms.Bucket entry : users.getBuckets()) {</span>
+
+<span class="nc" id="L127">      String user = (String) entry.getKey();</span>
+<span class="nc" id="L128">      Integer sessionNum = genSessionByReferer(es, user, timeThres);</span>
+<span class="nc" id="L129">      sessionCount += sessionNum;</span>
+<span class="nc" id="L130">    }</span>
+
+<span class="nc" id="L132">    LOG.info(&quot;Initial session count: {}&quot;, Integer.toString(sessionCount));</span>
+<span class="nc" id="L133">  }</span>
+
+  public void combineShortSessionsInSequential(int timeThres) throws ElasticsearchException, IOException {
+
+<span class="nc" id="L137">    Terms users = this.getUserTerms(this.cleanupType);</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">    for (Terms.Bucket entry : users.getBuckets()) {</span>
+<span class="nc" id="L139">      String user = entry.getKey().toString();</span>
+<span class="nc" id="L140">      combineShortSessions(es, user, timeThres);</span>
+<span class="nc" id="L141">    }</span>
+<span class="nc" id="L142">  }</span>
+
+  /**
+   * Method to remove invalid logs through IP address
+   *
+   * @param es an instantiated es driver
+   * @param ip invalid IP address
+   * @throws ElasticsearchException ElasticsearchException
+   * @throws IOException            IOException
+   */
+  public void deleteInvalid(ESDriver es, String ip) throws IOException {
+
+<span class="nc" id="L154">    BoolQueryBuilder filterAll = new BoolQueryBuilder();</span>
+<span class="nc" id="L155">    filterAll.must(QueryBuilders.termQuery(&quot;IP&quot;, ip));</span>
+
+<span class="nc" id="L157">    SearchResponse scrollResp = es.getClient().prepareSearch(logIndex).setTypes(this.cleanupType).setScroll(new TimeValue(60000)).setQuery(filterAll).setSize(100).execute().actionGet();</span>
+    while (true) {
+<span class="nc bnc" id="L159" title="All 2 branches missed.">      for (SearchHit hit : scrollResp.getHits().getHits()) {</span>
+<span class="nc" id="L160">        update(es, logIndex, cleanupType, hit.getId(), &quot;SessionID&quot;, &quot;invalid&quot;);</span>
+      }
+
+<span class="nc" id="L163">      scrollResp = es.getClient().prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(600000)).execute().actionGet();</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">      if (scrollResp.getHits().getHits().length == 0) {</span>
+<span class="nc" id="L165">        break;</span>
+      }
+    }
+<span class="nc" id="L168">  }</span>
+
+  /**
+   * Method to update a Elasticsearch record/document by id, field, and value
+   *
+   * @param es
+   * @param index  index name is Elasticsearch
+   * @param type   type name
+   * @param id     ID of the document that needs to be updated
+   * @param field1 field of the document that needs to be updated
+   * @param value1 value of the document that needs to be changed to
+   * @throws ElasticsearchException
+   * @throws IOException
+   */
+  private void update(ESDriver es, String index, String type, String id, String field1, Object value1) throws IOException {
+<span class="nc" id="L183">    UpdateRequest ur = new UpdateRequest(index, type, id).doc(jsonBuilder().startObject().field(field1, value1).endObject());</span>
+<span class="nc" id="L184">    es.getBulkProcessor().add(ur);</span>
+<span class="nc" id="L185">  }</span>
+
+  public void genSessionByRefererInParallel(int timeThres) throws InterruptedException, IOException {
+
+<span class="nc" id="L189">    JavaRDD&lt;String&gt; userRDD = getUserRDD(this.cleanupType);</span>
+
+<span class="nc" id="L191">    int sessionCount = 0;</span>
+<span class="nc" id="L192">    sessionCount = userRDD.mapPartitions(new FlatMapFunction&lt;Iterator&lt;String&gt;, Integer&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Iterator&lt;Integer&gt; call(Iterator&lt;String&gt; arg0) throws Exception {
+<span class="nc" id="L200">        ESDriver tmpES = new ESDriver(props);</span>
+<span class="nc" id="L201">        tmpES.createBulkProcessor();</span>
+<span class="nc" id="L202">        List&lt;Integer&gt; sessionNums = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">        while (arg0.hasNext()) {</span>
+<span class="nc" id="L204">          String s = arg0.next();</span>
+<span class="nc" id="L205">          Integer sessionNum = genSessionByReferer(tmpES, s, timeThres);</span>
+<span class="nc" id="L206">          sessionNums.add(sessionNum);</span>
+<span class="nc" id="L207">        }</span>
+<span class="nc" id="L208">        tmpES.destroyBulkProcessor();</span>
+<span class="nc" id="L209">        tmpES.close();</span>
+<span class="nc" id="L210">        return sessionNums.iterator();</span>
+      }
+<span class="nc" id="L212">    }).reduce(new Function2&lt;Integer, Integer, Integer&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Integer call(Integer a, Integer b) {
+<span class="nc" id="L220">        return a + b;</span>
+      }
+    });
+
+<span class="nc" id="L224">    LOG.info(&quot;Initial Session count: {}&quot;, Integer.toString(sessionCount));</span>
+<span class="nc" id="L225">  }</span>
+
+  public int genSessionByReferer(ESDriver es, String user, int timeThres) throws ElasticsearchException, IOException {
+
+<span class="nc" id="L229">    String startTime = null;</span>
+<span class="nc" id="L230">    int sessionCountIn = 0;</span>
+
+<span class="nc" id="L232">    BoolQueryBuilder filterSearch = new BoolQueryBuilder();</span>
+<span class="nc" id="L233">    filterSearch.must(QueryBuilders.termQuery(&quot;IP&quot;, user));</span>
+
+<span class="nc" id="L235">    SearchResponse scrollResp = es.getClient().prepareSearch(logIndex).setTypes(this.cleanupType).setScroll(new TimeValue(60000)).setQuery(filterSearch).addSort(&quot;Time&quot;, SortOrder.ASC).setSize(100)</span>
+<span class="nc" id="L236">        .execute().actionGet();</span>
+
+<span class="nc" id="L238">    Map&lt;String, Map&lt;String, DateTime&gt;&gt; sessionReqs = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L239">    String request = &quot;&quot;;</span>
+<span class="nc" id="L240">    String referer = &quot;&quot;;</span>
+<span class="nc" id="L241">    String logType = &quot;&quot;;</span>
+<span class="nc" id="L242">    String id = &quot;&quot;;</span>
+<span class="nc" id="L243">    String ip = user;</span>
+<span class="nc" id="L244">    String indexUrl = &quot;http://podaac.jpl.nasa.gov/&quot;;</span>
+<span class="nc" id="L245">    DateTime time = null;</span>
+<span class="nc" id="L246">    DateTimeFormatter fmt = ISODateTimeFormat.dateTime();</span>
+
+<span class="nc bnc" id="L248" title="All 2 branches missed.">    while (scrollResp.getHits().getHits().length != 0) {</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">      for (SearchHit hit : scrollResp.getHits().getHits()) {</span>
+<span class="nc" id="L250">        Map&lt;String, Object&gt; result = hit.getSource();</span>
+<span class="nc" id="L251">        request = (String) result.get(&quot;RequestUrl&quot;);</span>
+<span class="nc" id="L252">        referer = (String) result.get(&quot;Referer&quot;);</span>
+<span class="nc" id="L253">        logType = (String) result.get(&quot;LogType&quot;);</span>
+<span class="nc" id="L254">        time = fmt.parseDateTime((String) result.get(&quot;Time&quot;));</span>
+<span class="nc" id="L255">        id = hit.getId();</span>
+
+<span class="nc bnc" id="L257" title="All 2 branches missed.">        if (&quot;PO.DAAC&quot;.equals(logType)) {</span>
+<span class="nc bnc" id="L258" title="All 6 branches missed.">          if (&quot;-&quot;.equals(referer) || referer.equals(indexUrl) || !referer.contains(indexUrl)) {</span>
+<span class="nc" id="L259">            sessionCountIn++;</span>
+<span class="nc" id="L260">            sessionReqs.put(ip + &quot;@&quot; + sessionCountIn, new HashMap&lt;String, DateTime&gt;());</span>
+<span class="nc" id="L261">            sessionReqs.get(ip + &quot;@&quot; + sessionCountIn).put(request, time);</span>
+
+<span class="nc" id="L263">            update(es, logIndex, this.cleanupType, id, &quot;SessionID&quot;, ip + &quot;@&quot; + sessionCountIn);</span>
+
+          } else {
+<span class="nc" id="L266">            int count = sessionCountIn;</span>
+<span class="nc" id="L267">            int rollbackNum = 0;</span>
+            while (true) {
+<span class="nc" id="L269">              Map&lt;String, DateTime&gt; requests = sessionReqs.get(ip + &quot;@&quot; + count);</span>
+<span class="nc bnc" id="L270" title="All 2 branches missed.">              if (requests == null) {</span>
+<span class="nc" id="L271">                sessionReqs.put(ip + &quot;@&quot; + count, new HashMap&lt;String, DateTime&gt;());</span>
+<span class="nc" id="L272">                sessionReqs.get(ip + &quot;@&quot; + count).put(request, time);</span>
+<span class="nc" id="L273">                update(es, logIndex, this.cleanupType, id, &quot;SessionID&quot;, ip + &quot;@&quot; + count);</span>
+
+<span class="nc" id="L275">                break;</span>
+              }
+<span class="nc" id="L277">              ArrayList&lt;String&gt; keys = new ArrayList&lt;&gt;(requests.keySet());</span>
+<span class="nc" id="L278">              boolean bFindRefer = false;</span>
+
+<span class="nc bnc" id="L280" title="All 2 branches missed.">              for (int i = keys.size() - 1; i &gt;= 0; i--) {</span>
+<span class="nc" id="L281">                rollbackNum++;</span>
+<span class="nc bnc" id="L282" title="All 2 branches missed.">                if (keys.get(i).equalsIgnoreCase(referer)) {</span>
+<span class="nc" id="L283">                  bFindRefer = true;</span>
+                  // threshold,if time interval &gt; 10*
+                  // click num, start a new session
+<span class="nc bnc" id="L286" title="All 2 branches missed.">                  if (Math.abs(Seconds.secondsBetween(requests.get(keys.get(i)), time).getSeconds()) &lt; timeThres * rollbackNum) {</span>
+<span class="nc" id="L287">                    sessionReqs.get(ip + &quot;@&quot; + count).put(request, time);</span>
+<span class="nc" id="L288">                    update(es, logIndex, this.cleanupType, id, &quot;SessionID&quot;, ip + &quot;@&quot; + count);</span>
+                  } else {
+<span class="nc" id="L290">                    sessionCountIn++;</span>
+<span class="nc" id="L291">                    sessionReqs.put(ip + &quot;@&quot; + sessionCountIn, new HashMap&lt;String, DateTime&gt;());</span>
+<span class="nc" id="L292">                    sessionReqs.get(ip + &quot;@&quot; + sessionCountIn).put(request, time);</span>
+<span class="nc" id="L293">                    update(es, logIndex, this.cleanupType, id, &quot;SessionID&quot;, ip + &quot;@&quot; + sessionCountIn);</span>
+                  }
+
+<span class="nc" id="L296">                  break;</span>
+                }
+              }
+
+<span class="nc bnc" id="L300" title="All 2 branches missed.">              if (bFindRefer) {</span>
+<span class="nc" id="L301">                break;</span>
+              }
+
+<span class="nc" id="L304">              count--;</span>
+<span class="nc bnc" id="L305" title="All 2 branches missed.">              if (count &lt; 0) {</span>
+<span class="nc" id="L306">                sessionCountIn++;</span>
+
+<span class="nc" id="L308">                sessionReqs.put(ip + &quot;@&quot; + sessionCountIn, new HashMap&lt;String, DateTime&gt;());</span>
+<span class="nc" id="L309">                sessionReqs.get(ip + &quot;@&quot; + sessionCountIn).put(request, time);</span>
+<span class="nc" id="L310">                update(es, props.getProperty(MudrodConstants.ES_INDEX_NAME), this.cleanupType, id, &quot;SessionID&quot;, ip + &quot;@&quot; + sessionCountIn);</span>
+
+<span class="nc" id="L312">                break;</span>
+              }
+<span class="nc" id="L314">            }</span>
+<span class="nc" id="L315">          }</span>
+<span class="nc bnc" id="L316" title="All 2 branches missed.">        } else if (&quot;ftp&quot;.equals(logType)) {</span>
+
+          // may affect computation efficiency
+<span class="nc" id="L319">          Map&lt;String, DateTime&gt; requests = sessionReqs.get(ip + &quot;@&quot; + sessionCountIn);</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">          if (requests == null) {</span>
+<span class="nc" id="L321">            sessionReqs.put(ip + &quot;@&quot; + sessionCountIn, new HashMap&lt;String, DateTime&gt;());</span>
+          } else {
+<span class="nc" id="L323">            ArrayList&lt;String&gt; keys = new ArrayList&lt;&gt;(requests.keySet());</span>
+<span class="nc" id="L324">            int size = keys.size();</span>
+<span class="nc bnc" id="L325" title="All 2 branches missed.">            if (Math.abs(Seconds.secondsBetween(requests.get(keys.get(size - 1)), time).getSeconds()) &gt; timeThres) {</span>
+<span class="nc" id="L326">              sessionCountIn += 1;</span>
+<span class="nc" id="L327">              sessionReqs.put(ip + &quot;@&quot; + sessionCountIn, new HashMap&lt;String, DateTime&gt;());</span>
+            }
+          }
+<span class="nc" id="L330">          sessionReqs.get(ip + &quot;@&quot; + sessionCountIn).put(request, time);</span>
+<span class="nc" id="L331">          update(es, logIndex, this.cleanupType, id, &quot;SessionID&quot;, ip + &quot;@&quot; + sessionCountIn);</span>
+        }
+      }
+
+<span class="nc" id="L335">      scrollResp = es.getClient().prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(600000)).execute().actionGet();</span>
+    }
+
+<span class="nc" id="L338">    return sessionCountIn;</span>
+  }
+
+  public void combineShortSessionsInParallel(int timeThres) throws InterruptedException, IOException {
+
+<span class="nc" id="L343">    JavaRDD&lt;String&gt; userRDD = getUserRDD(this.cleanupType);</span>
+
+<span class="nc" id="L345">    userRDD.foreachPartition(new VoidFunction&lt;Iterator&lt;String&gt;&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public void call(Iterator&lt;String&gt; arg0) throws Exception {
+<span class="nc" id="L353">        ESDriver tmpES = new ESDriver(props);</span>
+<span class="nc" id="L354">        tmpES.createBulkProcessor();</span>
+<span class="nc bnc" id="L355" title="All 2 branches missed.">        while (arg0.hasNext()) {</span>
+<span class="nc" id="L356">          String s = arg0.next();</span>
+<span class="nc" id="L357">          combineShortSessions(tmpES, s, timeThres);</span>
+<span class="nc" id="L358">        }</span>
+<span class="nc" id="L359">        tmpES.destroyBulkProcessor();</span>
+<span class="nc" id="L360">        tmpES.close();</span>
+<span class="nc" id="L361">      }</span>
+    });
+<span class="nc" id="L363">  }</span>
+
+  public void combineShortSessions(ESDriver es, String user, int timeThres) throws ElasticsearchException, IOException {
+
+<span class="nc" id="L367">    BoolQueryBuilder filterSearch = new BoolQueryBuilder();</span>
+<span class="nc" id="L368">    filterSearch.must(QueryBuilders.termQuery(&quot;IP&quot;, user));</span>
+
+<span class="nc" id="L370">    String[] indexArr = new String[] { logIndex };</span>
+<span class="nc" id="L371">    String[] typeArr = new String[] { cleanupType };</span>
+<span class="nc" id="L372">    int docCount = es.getDocCount(indexArr, typeArr, filterSearch);</span>
+
+<span class="nc bnc" id="L374" title="All 2 branches missed.">    if (docCount &lt; 3) {</span>
+<span class="nc" id="L375">      deleteInvalid(es, user);</span>
+<span class="nc" id="L376">      return;</span>
+    }
+
+<span class="nc" id="L379">    BoolQueryBuilder filterCheck = new BoolQueryBuilder();</span>
+<span class="nc" id="L380">    filterCheck.must(QueryBuilders.termQuery(&quot;IP&quot;, user)).must(QueryBuilders.termQuery(&quot;Referer&quot;, &quot;-&quot;));</span>
+<span class="nc" id="L381">    SearchResponse checkReferer = es.getClient().prepareSearch(logIndex).setTypes(this.cleanupType).setScroll(new TimeValue(60000)).setQuery(filterCheck).setSize(0).execute().actionGet();</span>
+
+<span class="nc" id="L383">    long numInvalid = checkReferer.getHits().getTotalHits();</span>
+<span class="nc" id="L384">    double invalidRate = numInvalid / docCount;</span>
+
+<span class="nc bnc" id="L386" title="All 2 branches missed.">    if (invalidRate &gt;= 0.8) {</span>
+<span class="nc" id="L387">      deleteInvalid(es, user);</span>
+<span class="nc" id="L388">      return;</span>
+    }
+
+<span class="nc" id="L391">    StatsAggregationBuilder statsAgg = AggregationBuilders.stats(&quot;Stats&quot;).field(&quot;Time&quot;);</span>
+<span class="nc" id="L392">    SearchResponse srSession = es.getClient().prepareSearch(logIndex).setTypes(this.cleanupType).setScroll(new TimeValue(60000)).setQuery(filterSearch)</span>
+<span class="nc" id="L393">        .addAggregation(AggregationBuilders.terms(&quot;Sessions&quot;).field(&quot;SessionID&quot;).size(docCount).subAggregation(statsAgg)).execute().actionGet();</span>
+
+<span class="nc" id="L395">    Terms sessions = srSession.getAggregations().get(&quot;Sessions&quot;);</span>
+
+<span class="nc" id="L397">    List&lt;Session&gt; sessionList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L398" title="All 2 branches missed.">    for (Terms.Bucket session : sessions.getBuckets()) {</span>
+<span class="nc" id="L399">      Stats agg = session.getAggregations().get(&quot;Stats&quot;);</span>
+<span class="nc" id="L400">      Session sess = new Session(props, es, agg.getMinAsString(), agg.getMaxAsString(), session.getKey().toString());</span>
+<span class="nc" id="L401">      sessionList.add(sess);</span>
+<span class="nc" id="L402">    }</span>
+
+<span class="nc" id="L404">    Collections.sort(sessionList);</span>
+<span class="nc" id="L405">    DateTimeFormatter fmt = ISODateTimeFormat.dateTime();</span>
+<span class="nc" id="L406">    String last = null;</span>
+<span class="nc" id="L407">    String lastnewID = null;</span>
+<span class="nc" id="L408">    String lastoldID = null;</span>
+<span class="nc" id="L409">    String current = null;</span>
+<span class="nc bnc" id="L410" title="All 2 branches missed.">    for (Session s : sessionList) {</span>
+<span class="nc" id="L411">      current = s.getEndTime();</span>
+<span class="nc bnc" id="L412" title="All 2 branches missed.">      if (last != null) {</span>
+<span class="nc bnc" id="L413" title="All 2 branches missed.">        if (Seconds.secondsBetween(fmt.parseDateTime(last), fmt.parseDateTime(current)).getSeconds() &lt; timeThres) {</span>
+<span class="nc bnc" id="L414" title="All 2 branches missed.">          if (lastnewID == null) {</span>
+<span class="nc" id="L415">            s.setNewID(lastoldID);</span>
+          } else {
+<span class="nc" id="L417">            s.setNewID(lastnewID);</span>
+          }
+
+<span class="nc" id="L420">          QueryBuilder fs = QueryBuilders.boolQuery().filter(QueryBuilders.termQuery(&quot;SessionID&quot;, s.getID()));</span>
+
+<span class="nc" id="L422">          SearchResponse scrollResp = es.getClient().prepareSearch(logIndex).setTypes(this.cleanupType).setScroll(new TimeValue(60000)).setQuery(fs).setSize(100).execute().actionGet();</span>
+          while (true) {
+<span class="nc bnc" id="L424" title="All 2 branches missed.">            for (SearchHit hit : scrollResp.getHits().getHits()) {</span>
+<span class="nc bnc" id="L425" title="All 2 branches missed.">              if (lastnewID == null) {</span>
+<span class="nc" id="L426">                update(es, logIndex, this.cleanupType, hit.getId(), &quot;SessionID&quot;, lastoldID);</span>
+              } else {
+<span class="nc" id="L428">                update(es, logIndex, this.cleanupType, hit.getId(), &quot;SessionID&quot;, lastnewID);</span>
+              }
+            }
+
+<span class="nc" id="L432">            scrollResp = es.getClient().prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(600000)).execute().actionGet();</span>
+<span class="nc bnc" id="L433" title="All 2 branches missed.">            if (scrollResp.getHits().getHits().length == 0) {</span>
+<span class="nc" id="L434">              break;</span>
+            }
+          }
+        }
+        ;
+      }
+<span class="nc" id="L440">      lastoldID = s.getID();</span>
+<span class="nc" id="L441">      lastnewID = s.getNewID();</span>
+<span class="nc" id="L442">      last = current;</span>
+<span class="nc" id="L443">    }</span>
+
+<span class="nc" id="L445">  }</span>
+
+  @Override
+  public Object execute(Object o) {
+<span class="nc" id="L449">    return null;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

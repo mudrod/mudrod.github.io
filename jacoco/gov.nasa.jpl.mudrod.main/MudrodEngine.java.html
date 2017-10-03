@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MudrodEngine.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.main</a> &gt; <span class="el_source">MudrodEngine.java</span></div><h1>MudrodEngine.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.main;
+
+import gov.nasa.jpl.mudrod.discoveryengine.DiscoveryEngineAbstract;
+import gov.nasa.jpl.mudrod.discoveryengine.MetadataDiscoveryEngine;
+import gov.nasa.jpl.mudrod.discoveryengine.OntologyDiscoveryEngine;
+import gov.nasa.jpl.mudrod.discoveryengine.RecommendEngine;
+import gov.nasa.jpl.mudrod.discoveryengine.WeblogDiscoveryEngine;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.integration.LinkageIntegration;
+
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.GnuParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.OptionBuilder;
+import org.apache.commons.cli.Options;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang.StringUtils;
+import org.jdom2.Document;
+import org.jdom2.Element;
+import org.jdom2.JDOMException;
+import org.jdom2.input.SAXBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.nio.file.Files;
+import java.util.List;
+import java.util.Properties;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+
+import static gov.nasa.jpl.mudrod.main.MudrodConstants.DATA_DIR;
+
+/**
+ * Main entry point for Running the Mudrod system. Invocation of this class is
+ * tightly linked to the primary Mudrod configuration which can be located at
+ * &lt;a href=
+ * &quot;https://github.com/mudrod/mudrod/blob/master/core/src/main/resources/config.xml&quot;&gt;config.xml&lt;/a&gt;.
+ */
+<span class="nc bnc" id="L62" title="All 2 branches missed.">public class MudrodEngine {</span>
+
+<span class="nc" id="L64">  private static final Logger LOG = LoggerFactory.getLogger(MudrodEngine.class);</span>
+<span class="nc" id="L65">  private Properties props = new Properties();</span>
+<span class="nc" id="L66">  private ESDriver es = null;</span>
+<span class="nc" id="L67">  private SparkDriver spark = null;</span>
+  private static final String LOG_INGEST = &quot;logIngest&quot;;
+  private static final String META_INGEST = &quot;metaIngest&quot;;
+  private static final String FULL_INGEST = &quot;fullIngest&quot;;
+  private static final String PROCESSING = &quot;processingWithPreResults&quot;;
+  private static final String ES_HOST = &quot;esHost&quot;;
+  private static final String ES_TCP_PORT = &quot;esTCPPort&quot;;
+  private static final String ES_HTTP_PORT = &quot;esPort&quot;;
+
+  /**
+   * Public constructor for this class.
+   */
+<span class="nc" id="L79">  public MudrodEngine() {</span>
+    // default constructor
+<span class="nc" id="L81">  }</span>
+
+  /**
+   * Start the {@link ESDriver}. Should only be called after call to
+   * {@link MudrodEngine#loadConfig()}
+   *
+   * @return fully provisioned {@link ESDriver}
+   */
+  public ESDriver startESDriver() {
+<span class="nc" id="L90">    return new ESDriver(props);</span>
+  }
+
+  /**
+   * Start the {@link SparkDriver}. Should only be called after call to
+   * {@link MudrodEngine#loadConfig()}
+   *
+   * @return fully provisioned {@link SparkDriver}
+   */
+  public SparkDriver startSparkDriver() {
+<span class="nc" id="L100">    return new SparkDriver(props);</span>
+  }
+
+  /**
+   * Retreive the Mudrod configuration as a Properties Map containing K, V of
+   * type String.
+   *
+   * @return a {@link java.util.Properties} object
+   */
+  public Properties getConfig() {
+<span class="nc" id="L110">    return props;</span>
+  }
+
+  /**
+   * Retreive the Mudrod {@link ESDriver}
+   *
+   * @return the {@link ESDriver} instance.
+   */
+  public ESDriver getESDriver() {
+<span class="nc" id="L119">    return this.es;</span>
+  }
+
+  /**
+   * Set the Elasticsearch driver for MUDROD
+   *
+   * @param es
+   *          an ES driver instance
+   */
+  public void setESDriver(ESDriver es) {
+<span class="nc" id="L129">    this.es = es;</span>
+<span class="nc" id="L130">  }</span>
+
+  private InputStream locateConfig() {
+
+<span class="nc bnc" id="L134" title="All 2 branches missed.">    String configLocation = System.getenv(MudrodConstants.MUDROD_CONFIG) == null ? &quot;&quot; : System.getenv(MudrodConstants.MUDROD_CONFIG);</span>
+<span class="nc" id="L135">    File configFile = new File(configLocation);</span>
+
+    try {
+<span class="nc" id="L138">      InputStream configStream = new FileInputStream(configFile);</span>
+<span class="nc" id="L139">      LOG.info(&quot;Loaded config file from &quot; + configFile.getAbsolutePath());</span>
+<span class="nc" id="L140">      return configStream;</span>
+<span class="nc" id="L141">    } catch (IOException e) {</span>
+<span class="nc" id="L142">      LOG.info(&quot;File specified by environment variable &quot; + MudrodConstants.MUDROD_CONFIG + &quot;=\'&quot; + configLocation + &quot;\' could not be loaded. &quot; + e.getMessage());</span>
+    }
+
+<span class="nc" id="L145">    InputStream configStream = MudrodEngine.class.getClassLoader().getResourceAsStream(&quot;config.xml&quot;);</span>
+
+<span class="nc bnc" id="L147" title="All 2 branches missed.">    if (configStream != null) {</span>
+<span class="nc" id="L148">      LOG.info(&quot;Loaded config file from {}&quot;, MudrodEngine.class.getClassLoader().getResource(&quot;config.xml&quot;).getPath());</span>
+    }
+
+<span class="nc" id="L151">    return configStream;</span>
+  }
+
+  /**
+   * Load the configuration provided at &lt;a href=
+   * &quot;https://github.com/mudrod/mudrod/blob/master/core/src/main/resources/config.xml&quot;&gt;config.xml&lt;/a&gt;.
+   *
+   * @return a populated {@link java.util.Properties} object.
+   */
+  public Properties loadConfig() {
+<span class="nc" id="L161">    SAXBuilder saxBuilder = new SAXBuilder();</span>
+
+<span class="nc" id="L163">    InputStream configStream = locateConfig();</span>
+
+    Document document;
+    try {
+<span class="nc" id="L167">      document = saxBuilder.build(configStream);</span>
+<span class="nc" id="L168">      Element rootNode = document.getRootElement();</span>
+<span class="nc" id="L169">      List&lt;Element&gt; paraList = rootNode.getChildren(&quot;para&quot;);</span>
+
+<span class="nc bnc" id="L171" title="All 2 branches missed.">      for (int i = 0; i &lt; paraList.size(); i++) {</span>
+<span class="nc" id="L172">        Element paraNode = paraList.get(i);</span>
+<span class="nc" id="L173">        String attributeName = paraNode.getAttributeValue(&quot;name&quot;);</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">        if (MudrodConstants.SVM_SGD_MODEL.equals(attributeName)) {</span>
+<span class="nc" id="L175">          props.put(attributeName, decompressSVMWithSGDModel(paraNode.getTextTrim()));</span>
+        } else {
+<span class="nc" id="L177">          props.put(attributeName, paraNode.getTextTrim());</span>
+        }
+      }
+<span class="nc" id="L180">    } catch (JDOMException | IOException e) {</span>
+<span class="nc" id="L181">      LOG.error(&quot;Exception whilst retrieving or processing XML contained within 'config.xml'!&quot;, e);</span>
+<span class="nc" id="L182">    }</span>
+<span class="nc" id="L183">    return getConfig();</span>
+
+  }
+
+  private String decompressSVMWithSGDModel(String archiveName) throws IOException {
+
+<span class="nc" id="L189">    URL scmArchive = getClass().getClassLoader().getResource(archiveName);</span>
+<span class="nc bnc" id="L190" title="All 2 branches missed.">    if (scmArchive == null) {</span>
+<span class="nc" id="L191">      throw new IOException(&quot;Unable to locate &quot; + archiveName + &quot; as a classpath resource.&quot;);</span>
+    }
+<span class="nc" id="L193">    File tempDir = Files.createTempDirectory(&quot;mudrod&quot;).toFile();</span>
+<span class="nc bnc" id="L194" title="All 4 branches missed.">    assert tempDir.setWritable(true);</span>
+<span class="nc" id="L195">    File archiveFile = new File(tempDir, archiveName);</span>
+<span class="nc" id="L196">    FileUtils.copyURLToFile(scmArchive, archiveFile);</span>
+
+    // Decompress archive
+<span class="nc" id="L199">    int BUFFER_SIZE = 512000;</span>
+<span class="nc" id="L200">    ZipInputStream zipIn = new ZipInputStream(new FileInputStream(archiveFile));</span>
+    ZipEntry entry;
+<span class="nc bnc" id="L202" title="All 2 branches missed.">    while ((entry = zipIn.getNextEntry()) != null) {</span>
+<span class="nc" id="L203">      File f = new File(tempDir, entry.getName());</span>
+      // If the entry is a directory, create the directory.
+<span class="nc bnc" id="L205" title="All 4 branches missed.">      if (entry.isDirectory() &amp;&amp; !f.exists()) {</span>
+<span class="nc" id="L206">        boolean created = f.mkdirs();</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">        if (!created) {</span>
+<span class="nc" id="L208">          LOG.error(&quot;Unable to create directory '{}', during extraction of archive contents.&quot;, f.getAbsolutePath());</span>
+        }
+<span class="nc bnc" id="L210" title="All 2 branches missed.">      } else if (!entry.isDirectory()) {</span>
+<span class="nc" id="L211">        boolean created = f.getParentFile().mkdirs();</span>
+<span class="nc bnc" id="L212" title="All 4 branches missed.">        if (!created &amp;&amp; !f.getParentFile().exists()) {</span>
+<span class="nc" id="L213">          LOG.error(&quot;Unable to create directory '{}', during extraction of archive contents.&quot;, f.getParentFile().getAbsolutePath());</span>
+        }
+        int count;
+<span class="nc" id="L216">        byte data[] = new byte[BUFFER_SIZE];</span>
+<span class="nc" id="L217">        FileOutputStream fos = new FileOutputStream(new File(tempDir, entry.getName()), false);</span>
+<span class="nc" id="L218">        try (BufferedOutputStream dest = new BufferedOutputStream(fos, BUFFER_SIZE)) {</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">          while ((count = zipIn.read(data, 0, BUFFER_SIZE)) != -1) {</span>
+<span class="nc" id="L220">            dest.write(data, 0, count);</span>
+          }
+        }
+      }
+<span class="nc" id="L224">    }</span>
+
+<span class="nc" id="L226">    return new File(tempDir, StringUtils.removeEnd(archiveName, &quot;.zip&quot;)).toURI().toString();</span>
+  }
+
+  /**
+   * Preprocess and process logs {@link DiscoveryEngineAbstract} implementations
+   * for weblog
+   */
+  public void startLogIngest() {
+<span class="nc" id="L234">    DiscoveryEngineAbstract wd = new WeblogDiscoveryEngine(props, es, spark);</span>
+<span class="nc" id="L235">    wd.preprocess();</span>
+<span class="nc" id="L236">    wd.process();</span>
+<span class="nc" id="L237">    LOG.info(&quot;*****************logs have been ingested successfully******************&quot;);</span>
+<span class="nc" id="L238">  }</span>
+
+  /**
+   * updating and analysing metadata to metadata similarity results
+   */
+  public void startMetaIngest() {
+<span class="nc" id="L244">    DiscoveryEngineAbstract md = new MetadataDiscoveryEngine(props, es, spark);</span>
+<span class="nc" id="L245">    md.preprocess();</span>
+<span class="nc" id="L246">    md.process();</span>
+
+<span class="nc" id="L248">    DiscoveryEngineAbstract recom = new RecommendEngine(props, es, spark);</span>
+<span class="nc" id="L249">    recom.preprocess();</span>
+<span class="nc" id="L250">    recom.process();</span>
+<span class="nc" id="L251">    LOG.info(&quot;Metadata has been ingested successfully.&quot;);</span>
+<span class="nc" id="L252">  }</span>
+
+  public void startFullIngest() {
+<span class="nc" id="L255">    DiscoveryEngineAbstract wd = new WeblogDiscoveryEngine(props, es, spark);</span>
+<span class="nc" id="L256">    wd.preprocess();</span>
+<span class="nc" id="L257">    wd.process();</span>
+
+<span class="nc" id="L259">    DiscoveryEngineAbstract md = new MetadataDiscoveryEngine(props, es, spark);</span>
+<span class="nc" id="L260">    md.preprocess();</span>
+<span class="nc" id="L261">    md.process();</span>
+
+<span class="nc" id="L263">    DiscoveryEngineAbstract recom = new RecommendEngine(props, es, spark);</span>
+<span class="nc" id="L264">    recom.preprocess();</span>
+<span class="nc" id="L265">    recom.process();</span>
+<span class="nc" id="L266">    LOG.info(&quot;Full ingest has finished successfully.&quot;);</span>
+<span class="nc" id="L267">  }</span>
+
+  /**
+   * Only preprocess various {@link DiscoveryEngineAbstract} implementations for
+   * weblog, ontology and metadata, linkage discovery and integration.
+   */
+  public void startProcessing() {
+<span class="nc" id="L274">    DiscoveryEngineAbstract wd = new WeblogDiscoveryEngine(props, es, spark);</span>
+<span class="nc" id="L275">    wd.process();</span>
+
+<span class="nc" id="L277">    DiscoveryEngineAbstract od = new OntologyDiscoveryEngine(props, es, spark);</span>
+<span class="nc" id="L278">    od.preprocess();</span>
+<span class="nc" id="L279">    od.process();</span>
+
+<span class="nc" id="L281">    DiscoveryEngineAbstract md = new MetadataDiscoveryEngine(props, es, spark);</span>
+<span class="nc" id="L282">    md.preprocess();</span>
+<span class="nc" id="L283">    md.process();</span>
+
+<span class="nc" id="L285">    LinkageIntegration li = new LinkageIntegration(props, es, spark);</span>
+<span class="nc" id="L286">    li.execute();</span>
+
+<span class="nc" id="L288">    DiscoveryEngineAbstract recom = new RecommendEngine(props, es, spark);</span>
+<span class="nc" id="L289">    recom.process();</span>
+<span class="nc" id="L290">  }</span>
+
+  /**
+   * Close the connection to the {@link ESDriver} instance.
+   */
+  public void end() {
+<span class="nc bnc" id="L296" title="All 2 branches missed.">    if (es != null) {</span>
+<span class="nc" id="L297">      es.close();</span>
+    }
+<span class="nc" id="L299">  }</span>
+
+  /**
+   * Main program invocation. Accepts one argument denoting location (on disk)
+   * to a log file which is to be ingested. Help will be provided if invoked
+   * with incorrect parameters.
+   *
+   * @param args
+   *          {@link java.lang.String} array contaning correct parameters.
+   */
+  public static void main(String[] args) {
+    // boolean options
+<span class="nc" id="L311">    Option helpOpt = new Option(&quot;h&quot;, &quot;help&quot;, false, &quot;show this help message&quot;);</span>
+
+    // log ingest (preprocessing + processing)
+<span class="nc" id="L314">    Option logIngestOpt = new Option(&quot;l&quot;, LOG_INGEST, false, &quot;begin log ingest&quot;);</span>
+    // metadata ingest (preprocessing + processing)
+<span class="nc" id="L316">    Option metaIngestOpt = new Option(&quot;m&quot;, META_INGEST, false, &quot;begin metadata ingest&quot;);</span>
+    // ingest both log and metadata
+<span class="nc" id="L318">    Option fullIngestOpt = new Option(&quot;f&quot;, FULL_INGEST, false, &quot;begin full ingest Mudrod workflow&quot;);</span>
+    // processing only, assuming that preprocessing results is in dataDir
+<span class="nc" id="L320">    Option processingOpt = new Option(&quot;p&quot;, PROCESSING, false, &quot;begin processing with preprocessing results&quot;);</span>
+
+    // argument options
+<span class="nc" id="L323">    Option dataDirOpt = OptionBuilder.hasArg(true).withArgName(&quot;/path/to/data/directory&quot;).hasArgs(1).withDescription(&quot;the data directory to be processed by Mudrod&quot;).withLongOpt(&quot;dataDirectory&quot;)</span>
+<span class="nc" id="L324">        .isRequired().create(DATA_DIR);</span>
+
+<span class="nc" id="L326">    Option esHostOpt = OptionBuilder.hasArg(true).withArgName(&quot;host_name&quot;).hasArgs(1).withDescription(&quot;elasticsearch cluster unicast host&quot;).withLongOpt(&quot;elasticSearchHost&quot;).isRequired(false)</span>
+<span class="nc" id="L327">        .create(ES_HOST);</span>
+
+<span class="nc" id="L329">    Option esTCPPortOpt = OptionBuilder.hasArg(true).withArgName(&quot;port_num&quot;).hasArgs(1).withDescription(&quot;elasticsearch transport TCP port&quot;).withLongOpt(&quot;elasticSearchTransportTCPPort&quot;)</span>
+<span class="nc" id="L330">        .isRequired(false).create(ES_TCP_PORT);</span>
+
+<span class="nc" id="L332">    Option esPortOpt = OptionBuilder.hasArg(true).withArgName(&quot;port_num&quot;).hasArgs(1).withDescription(&quot;elasticsearch HTTP/REST port&quot;).withLongOpt(&quot;elasticSearchHTTPPort&quot;).isRequired(false)</span>
+<span class="nc" id="L333">        .create(ES_HTTP_PORT);</span>
+
+    // create the options
+<span class="nc" id="L336">    Options options = new Options();</span>
+<span class="nc" id="L337">    options.addOption(helpOpt);</span>
+<span class="nc" id="L338">    options.addOption(logIngestOpt);</span>
+<span class="nc" id="L339">    options.addOption(metaIngestOpt);</span>
+<span class="nc" id="L340">    options.addOption(fullIngestOpt);</span>
+<span class="nc" id="L341">    options.addOption(processingOpt);</span>
+<span class="nc" id="L342">    options.addOption(dataDirOpt);</span>
+<span class="nc" id="L343">    options.addOption(esHostOpt);</span>
+<span class="nc" id="L344">    options.addOption(esTCPPortOpt);</span>
+<span class="nc" id="L345">    options.addOption(esPortOpt);</span>
+
+<span class="nc" id="L347">    CommandLineParser parser = new GnuParser();</span>
+    try {
+<span class="nc" id="L349">      CommandLine line = parser.parse(options, args);</span>
+<span class="nc" id="L350">      String processingType = null;</span>
+
+<span class="nc bnc" id="L352" title="All 2 branches missed.">      if (line.hasOption(LOG_INGEST)) {</span>
+<span class="nc" id="L353">        processingType = LOG_INGEST;</span>
+<span class="nc bnc" id="L354" title="All 2 branches missed.">      } else if (line.hasOption(PROCESSING)) {</span>
+<span class="nc" id="L355">        processingType = PROCESSING;</span>
+<span class="nc bnc" id="L356" title="All 2 branches missed.">      } else if (line.hasOption(META_INGEST)) {</span>
+<span class="nc" id="L357">        processingType = META_INGEST;</span>
+<span class="nc bnc" id="L358" title="All 2 branches missed.">      } else if (line.hasOption(FULL_INGEST)) {</span>
+<span class="nc" id="L359">        processingType = FULL_INGEST;</span>
+      }
+
+<span class="nc" id="L362">      String dataDir = line.getOptionValue(DATA_DIR).replace(&quot;\\&quot;, &quot;/&quot;);</span>
+<span class="nc bnc" id="L363" title="All 2 branches missed.">      if (!dataDir.endsWith(&quot;/&quot;)) {</span>
+<span class="nc" id="L364">        dataDir += &quot;/&quot;;</span>
+      }
+
+<span class="nc" id="L367">      MudrodEngine me = new MudrodEngine();</span>
+<span class="nc" id="L368">      me.loadConfig();</span>
+<span class="nc" id="L369">      me.props.put(DATA_DIR, dataDir);</span>
+
+<span class="nc bnc" id="L371" title="All 2 branches missed.">      if (line.hasOption(ES_HOST)) {</span>
+<span class="nc" id="L372">        String esHost = line.getOptionValue(ES_HOST);</span>
+<span class="nc" id="L373">        me.props.put(MudrodConstants.ES_UNICAST_HOSTS, esHost);</span>
+      }
+
+<span class="nc bnc" id="L376" title="All 2 branches missed.">      if (line.hasOption(ES_TCP_PORT)) {</span>
+<span class="nc" id="L377">        String esTcpPort = line.getOptionValue(ES_TCP_PORT);</span>
+<span class="nc" id="L378">        me.props.put(MudrodConstants.ES_TRANSPORT_TCP_PORT, esTcpPort);</span>
+      }
+
+<span class="nc bnc" id="L381" title="All 2 branches missed.">      if (line.hasOption(ES_HTTP_PORT)) {</span>
+<span class="nc" id="L382">        String esHttpPort = line.getOptionValue(ES_HTTP_PORT);</span>
+<span class="nc" id="L383">        me.props.put(MudrodConstants.ES_HTTP_PORT, esHttpPort);</span>
+      }
+
+<span class="nc" id="L386">      me.es = new ESDriver(me.getConfig());</span>
+<span class="nc" id="L387">      me.spark = new SparkDriver(me.getConfig());</span>
+<span class="nc" id="L388">      loadFullConfig(me, dataDir);</span>
+<span class="nc bnc" id="L389" title="All 2 branches missed.">      if (processingType != null) {</span>
+<span class="nc bnc" id="L390" title="All 5 branches missed.">        switch (processingType) {</span>
+        case PROCESSING:
+<span class="nc" id="L392">          me.startProcessing();</span>
+<span class="nc" id="L393">          break;</span>
+        case LOG_INGEST:
+<span class="nc" id="L395">          me.startLogIngest();</span>
+<span class="nc" id="L396">          break;</span>
+        case META_INGEST:
+<span class="nc" id="L398">          me.startMetaIngest();</span>
+<span class="nc" id="L399">          break;</span>
+        case FULL_INGEST:
+<span class="nc" id="L401">          me.startFullIngest();</span>
+<span class="nc" id="L402">          break;</span>
+        default:
+          break;
+        }
+      }
+<span class="nc" id="L407">      me.end();</span>
+<span class="nc" id="L408">    } catch (Exception e) {</span>
+<span class="nc" id="L409">      HelpFormatter formatter = new HelpFormatter();</span>
+<span class="nc" id="L410">      formatter.printHelp(&quot;MudrodEngine: 'dataDir' argument is mandatory. &quot; + &quot;User must also provide an ingest method.&quot;, options, true);</span>
+<span class="nc" id="L411">      LOG.error(&quot;Error whilst parsing command line.&quot;, e);</span>
+<span class="nc" id="L412">    }</span>
+<span class="nc" id="L413">  }</span>
+
+  private static void loadFullConfig(MudrodEngine me, String dataDir) {
+    //TODO all of the properties defined below, which are determined are
+    //runtime need to be added to MudrodConstants.java and referenced 
+    //accordingly and consistently from Properties.getProperty(MudrodConstant...);
+<span class="nc" id="L419">    me.props.put(&quot;ontologyInputDir&quot;, dataDir + &quot;SWEET_ocean/&quot;);</span>
+<span class="nc" id="L420">    me.props.put(&quot;oceanTriples&quot;, dataDir + &quot;Ocean_triples.csv&quot;);</span>
+<span class="nc" id="L421">    me.props.put(&quot;userHistoryMatrix&quot;, dataDir + &quot;UserHistoryMatrix.csv&quot;);</span>
+<span class="nc" id="L422">    me.props.put(&quot;clickstreamMatrix&quot;, dataDir + &quot;ClickstreamMatrix.csv&quot;);</span>
+<span class="nc" id="L423">    me.props.put(&quot;metadataMatrix&quot;, dataDir + &quot;MetadataMatrix.csv&quot;);</span>
+<span class="nc" id="L424">    me.props.put(&quot;clickstreamSVDMatrix_tmp&quot;, dataDir + &quot;clickstreamSVDMatrix_tmp.csv&quot;);</span>
+<span class="nc" id="L425">    me.props.put(&quot;metadataSVDMatrix_tmp&quot;, dataDir + &quot;metadataSVDMatrix_tmp.csv&quot;);</span>
+<span class="nc" id="L426">    me.props.put(&quot;raw_metadataPath&quot;, dataDir + me.props.getProperty(MudrodConstants.RAW_METADATA_TYPE));</span>
+
+<span class="nc" id="L428">    me.props.put(&quot;jtopia&quot;, dataDir + &quot;jtopiaModel&quot;);</span>
+<span class="nc" id="L429">    me.props.put(&quot;metadata_term_tfidf_matrix&quot;, dataDir + &quot;metadata_term_tfidf.csv&quot;);</span>
+<span class="nc" id="L430">    me.props.put(&quot;metadata_word_tfidf_matrix&quot;, dataDir + &quot;metadata_word_tfidf.csv&quot;);</span>
+<span class="nc" id="L431">    me.props.put(&quot;session_metadata_Matrix&quot;, dataDir + &quot;metadata_session_coocurrence_matrix.csv&quot;);</span>
+
+<span class="nc" id="L433">    me.props.put(&quot;metadataOBCode&quot;, dataDir + &quot;MetadataOHCode&quot;);</span>
+<span class="nc" id="L434">    me.props.put(&quot;metadata_topic&quot;, dataDir + &quot;metadata_topic&quot;);</span>
+<span class="nc" id="L435">    me.props.put(&quot;metadata_topic_matrix&quot;, dataDir + &quot;metadata_topic_matrix.csv&quot;);</span>
+<span class="nc" id="L436">  }</span>
+
+  /**
+   * Obtain the spark implementation.
+   *
+   * @return the {@link SparkDriver}
+   */
+  public SparkDriver getSparkDriver() {
+<span class="nc" id="L444">    return this.spark;</span>
+  }
+
+  /**
+   * Set the {@link SparkDriver}
+   *
+   * @param sparkDriver
+   *          a configured {@link SparkDriver}
+   */
+  public void setSparkDriver(SparkDriver sparkDriver) {
+<span class="nc" id="L454">    this.spark = sparkDriver;</span>
+
+<span class="nc" id="L456">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

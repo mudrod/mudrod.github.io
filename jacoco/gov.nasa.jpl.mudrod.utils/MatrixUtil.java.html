@@ -1,0 +1,489 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MatrixUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.utils</a> &gt; <span class="el_source">MatrixUtil.java</span></div><h1>MatrixUtil.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.utils;
+
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.Optional;
+import org.apache.spark.api.java.function.*;
+import org.apache.spark.mllib.feature.IDF;
+import org.apache.spark.mllib.feature.IDFModel;
+import org.apache.spark.mllib.linalg.*;
+import org.apache.spark.mllib.linalg.distributed.IndexedRow;
+import org.apache.spark.mllib.linalg.distributed.IndexedRowMatrix;
+import org.apache.spark.mllib.linalg.distributed.RowMatrix;
+import scala.Tuple2;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.stream.Stream;
+
+/**
+ * Matrix utility tool
+ */
+public class MatrixUtil {
+
+  private MatrixUtil() {
+  }
+
+  /**
+   * buildSVDMatrix: Generate SVD matrix from TF-IDF matrix. Please make sure
+   * the TF-IDF matrix has been already built from the original documents.
+   *
+   * @param tfidfMatrix,
+   *          each row is a term and each column is a document name and each
+   *          cell is the TF-IDF value of the term in the corresponding
+   *          document.
+   * @param dimension
+   *          Column number of the SVD matrix
+   * @return RowMatrix, each row is a term and each column is a dimension in the
+   *         feature space, each cell is value of the term in the corresponding
+   *         dimension.
+   */
+  public static RowMatrix buildSVDMatrix(RowMatrix tfidfMatrix, int dimension) {
+<span class="nc" id="L63">    int matrixCol = (int) tfidfMatrix.numCols();</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">    if (matrixCol &lt; dimension) {</span>
+<span class="nc" id="L65">      dimension = matrixCol;</span>
+    }
+
+<span class="nc" id="L68">    SingularValueDecomposition&lt;RowMatrix, Matrix&gt; svd = tfidfMatrix.computeSVD(dimension, true, 1.0E-9d);</span>
+<span class="nc" id="L69">    RowMatrix u = svd.U();</span>
+<span class="nc" id="L70">    Vector s = svd.s();</span>
+<span class="nc" id="L71">    return u.multiply(Matrices.diag(s));</span>
+  }
+
+  /**
+   * buildSVDMatrix: Generate SVD matrix from Vector RDD.
+   *
+   * @param vecRDD
+   *          vectors of terms in feature space
+   * @param dimension
+   *          Column number of the SVD matrix
+   * @return RowMatrix, each row is a term and each column is a dimension in the
+   *         feature space, each cell is value of the term in the corresponding
+   *         dimension.
+   */
+  public static RowMatrix buildSVDMatrix(JavaRDD&lt;Vector&gt; vecRDD, int dimension) {
+<span class="nc" id="L86">    RowMatrix tfidfMatrix = new RowMatrix(vecRDD.rdd());</span>
+<span class="nc" id="L87">    SingularValueDecomposition&lt;RowMatrix, Matrix&gt; svd = tfidfMatrix.computeSVD(dimension, true, 1.0E-9d);</span>
+<span class="nc" id="L88">    RowMatrix u = svd.U();</span>
+<span class="nc" id="L89">    Vector s = svd.s();</span>
+<span class="nc" id="L90">    return u.multiply(Matrices.diag(s));</span>
+  }
+
+  /**
+   * Create TF-IDF matrix from word-doc matrix.
+   *
+   * @param wordDocMatrix,
+   *          each row is a term, each column is a document name and each cell
+   *          is number of the term in the corresponding document.
+   * @return RowMatrix, each row is a term and each column is a document name
+   *         and each cell is the TF-IDF value of the term in the corresponding
+   *         document.
+   */
+  public static RowMatrix createTFIDFMatrix(RowMatrix wordDocMatrix) {
+<span class="nc" id="L104">    JavaRDD&lt;Vector&gt; newcountRDD = wordDocMatrix.rows().toJavaRDD();</span>
+<span class="nc" id="L105">    IDFModel idfModel = new IDF().fit(newcountRDD);</span>
+<span class="nc" id="L106">    JavaRDD&lt;Vector&gt; idf = idfModel.transform(newcountRDD);</span>
+<span class="nc" id="L107">    return new RowMatrix(idf.rdd());</span>
+  }
+
+  /**
+   * Create matrix from doc-terms JavaPairRDD.
+   *
+   * @param uniqueDocRDD
+   *          doc-terms JavaPairRDD, in which each key is a doc name, and value
+   *          is term list extracted from that doc
+   * @return LabeledRowMatrix {@link LabeledRowMatrix}
+   */
+  public static LabeledRowMatrix createWordDocMatrix(JavaPairRDD&lt;String, List&lt;String&gt;&gt; uniqueDocRDD) {
+    // Index documents with unique IDs
+<span class="nc" id="L120">    JavaPairRDD&lt;List&lt;String&gt;, Long&gt; corpus = uniqueDocRDD.values().zipWithIndex();</span>
+    // cal word-doc numbers
+<span class="nc" id="L122">    JavaPairRDD&lt;Tuple2&lt;String, Long&gt;, Double&gt; worddocNumRDD = corpus.flatMapToPair(new PairFlatMapFunction&lt;Tuple2&lt;List&lt;String&gt;, Long&gt;, Tuple2&lt;String, Long&gt;, Double&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Iterator&lt;Tuple2&lt;Tuple2&lt;String, Long&gt;, Double&gt;&gt; call(Tuple2&lt;List&lt;String&gt;, Long&gt; docwords) throws Exception {
+<span class="nc" id="L130">        List&lt;Tuple2&lt;Tuple2&lt;String, Long&gt;, Double&gt;&gt; pairs = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L131">        List&lt;String&gt; words = docwords._1;</span>
+<span class="nc" id="L132">        int n = words.size();</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        for (int i = 0; i &lt; n; i++) {</span>
+<span class="nc" id="L134">          Tuple2&lt;String, Long&gt; worddoc = new Tuple2&lt;&gt;(words.get(i), docwords._2);</span>
+<span class="nc" id="L135">          pairs.add(new Tuple2&lt;Tuple2&lt;String, Long&gt;, Double&gt;(worddoc, 1.0));</span>
+        }
+<span class="nc" id="L137">        return pairs.iterator();</span>
+      }
+<span class="nc" id="L139">    }).reduceByKey(new Function2&lt;Double, Double, Double&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Double call(Double first, Double second) throws Exception {
+<span class="nc" id="L147">        return first + second;</span>
+      }
+    });
+    // cal word doc-numbers
+<span class="nc" id="L151">    JavaPairRDD&lt;String, Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt;&gt; wordDocnumRDD = worddocNumRDD</span>
+<span class="nc" id="L152">        .mapToPair(new PairFunction&lt;Tuple2&lt;Tuple2&lt;String, Long&gt;, Double&gt;, String, Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt;&gt;() {</span>
+          /**
+           *
+           */
+          private static final long serialVersionUID = 1L;
+
+          @Override
+          public Tuple2&lt;String, Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt;&gt; call(Tuple2&lt;Tuple2&lt;String, Long&gt;, Double&gt; worddocNum) throws Exception {
+<span class="nc" id="L160">            List&lt;Long&gt; docs = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L161">            docs.add(worddocNum._1._2);</span>
+<span class="nc" id="L162">            List&lt;Double&gt; nums = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L163">            nums.add(worddocNum._2);</span>
+<span class="nc" id="L164">            Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt; docmums = new Tuple2&lt;&gt;(docs, nums);</span>
+<span class="nc" id="L165">            return new Tuple2&lt;&gt;(worddocNum._1._1, docmums);</span>
+          }
+        });
+    // trans to vector
+<span class="nc" id="L169">    final int corporsize = (int) uniqueDocRDD.keys().count();</span>
+<span class="nc" id="L170">    JavaPairRDD&lt;String, Vector&gt; wordVectorRDD = wordDocnumRDD.reduceByKey(new Function2&lt;Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt;, Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt;, Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt;&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt; call(Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt; arg0, Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt; arg1) throws Exception {
+<span class="nc" id="L178">        arg0._1.addAll(arg1._1);</span>
+<span class="nc" id="L179">        arg0._2.addAll(arg1._2);</span>
+<span class="nc" id="L180">        return new Tuple2&lt;&gt;(arg0._1, arg0._2);</span>
+      }
+<span class="nc" id="L182">    }).mapToPair(new PairFunction&lt;Tuple2&lt;String, Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt;&gt;, String, Vector&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;String, Vector&gt; call(Tuple2&lt;String, Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt;&gt; arg0) throws Exception {
+<span class="nc" id="L190">        int docsize = arg0._2._1.size();</span>
+<span class="nc" id="L191">        int[] intArray = new int[docsize];</span>
+<span class="nc" id="L192">        double[] doubleArray = new double[docsize];</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        for (int i = 0; i &lt; docsize; i++) {</span>
+<span class="nc" id="L194">          intArray[i] = arg0._2._1.get(i).intValue();</span>
+<span class="nc" id="L195">          doubleArray[i] = arg0._2._2.get(i).intValue();</span>
+        }
+<span class="nc" id="L197">        Vector sv = Vectors.sparse(corporsize, intArray, doubleArray);</span>
+<span class="nc" id="L198">        return new Tuple2&lt;&gt;(arg0._1, sv);</span>
+      }
+    });
+
+<span class="nc" id="L202">    RowMatrix wordDocMatrix = new RowMatrix(wordVectorRDD.values().rdd());</span>
+
+<span class="nc" id="L204">    LabeledRowMatrix labeledRowMatrix = new LabeledRowMatrix();</span>
+<span class="nc" id="L205">    labeledRowMatrix.rowMatrix = wordDocMatrix;</span>
+<span class="nc" id="L206">    labeledRowMatrix.rowkeys = wordVectorRDD.keys().collect();</span>
+<span class="nc" id="L207">    labeledRowMatrix.colkeys = uniqueDocRDD.keys().collect();</span>
+<span class="nc" id="L208">    return labeledRowMatrix;</span>
+  }
+
+  public static LabeledRowMatrix createDocWordMatrix(JavaPairRDD&lt;String, List&lt;String&gt;&gt; uniqueDocRDD, JavaSparkContext sc) {
+    // Index word with unique IDs
+<span class="nc" id="L213">    JavaPairRDD&lt;String, Long&gt; wordIDRDD = uniqueDocRDD.values().flatMap(new FlatMapFunction&lt;List&lt;String&gt;, String&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Iterator&lt;String&gt; call(List&lt;String&gt; arg0) throws Exception {
+<span class="nc" id="L221">        return arg0.iterator();</span>
+      }
+<span class="nc" id="L223">    }).distinct().zipWithIndex();</span>
+
+    //
+<span class="nc" id="L226">    JavaPairRDD&lt;Tuple2&lt;String, String&gt;, Double&gt; docwordNumRDD = uniqueDocRDD.flatMapToPair(new PairFlatMapFunction&lt;Tuple2&lt;String, List&lt;String&gt;&gt;, Tuple2&lt;String, String&gt;, Double&gt;() {</span>
+
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Iterator&lt;Tuple2&lt;Tuple2&lt;String, String&gt;, Double&gt;&gt; call(Tuple2&lt;String, List&lt;String&gt;&gt; docwords) throws Exception {
+<span class="nc" id="L235">        List&lt;Tuple2&lt;Tuple2&lt;String, String&gt;, Double&gt;&gt; pairs = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L236">        List&lt;String&gt; words = docwords._2;</span>
+<span class="nc" id="L237">        int n = words.size();</span>
+<span class="nc bnc" id="L238" title="All 2 branches missed.">        for (int i = 0; i &lt; n; i++) {</span>
+<span class="nc" id="L239">          Tuple2&lt;String, String&gt; worddoc = new Tuple2&lt;&gt;(docwords._1, words.get(i));</span>
+<span class="nc" id="L240">          pairs.add(new Tuple2&lt;Tuple2&lt;String, String&gt;, Double&gt;(worddoc, 1.0));</span>
+        }
+<span class="nc" id="L242">        return pairs.iterator();</span>
+      }
+<span class="nc" id="L244">    }).reduceByKey(new Function2&lt;Double, Double, Double&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Double call(Double first, Double second) throws Exception {
+<span class="nc" id="L252">        return first + second;</span>
+      }
+    });
+
+    //
+<span class="nc" id="L257">    JavaPairRDD&lt;String, Tuple2&lt;String, Double&gt;&gt; wordDocnumRDD = docwordNumRDD.mapToPair(new PairFunction&lt;Tuple2&lt;Tuple2&lt;String, String&gt;, Double&gt;, String, Tuple2&lt;String, Double&gt;&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;String, Tuple2&lt;String, Double&gt;&gt; call(Tuple2&lt;Tuple2&lt;String, String&gt;, Double&gt; arg0) throws Exception {
+
+<span class="nc" id="L266">        Tuple2&lt;String, Double&gt; wordmums = new Tuple2&lt;&gt;(arg0._1._1, arg0._2);</span>
+<span class="nc" id="L267">        return new Tuple2&lt;&gt;(arg0._1._2, wordmums);</span>
+      }
+    });
+
+    //
+
+<span class="nc" id="L273">    JavaPairRDD&lt;String, Tuple2&lt;Tuple2&lt;String, Double&gt;, Optional&lt;Long&gt;&gt;&gt; testRDD = wordDocnumRDD.leftOuterJoin(wordIDRDD);</span>
+
+<span class="nc" id="L275">    int wordsize = (int) wordIDRDD.count();</span>
+<span class="nc" id="L276">    JavaPairRDD&lt;String, Vector&gt; docVectorRDD = testRDD.mapToPair(new PairFunction&lt;Tuple2&lt;String, Tuple2&lt;Tuple2&lt;String, Double&gt;, Optional&lt;Long&gt;&gt;&gt;, String, Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt;&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;String, Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt;&gt; call(Tuple2&lt;String, Tuple2&lt;Tuple2&lt;String, Double&gt;, Optional&lt;Long&gt;&gt;&gt; arg0) throws Exception {
+<span class="nc" id="L284">        Optional&lt;Long&gt; oid = arg0._2._2;</span>
+<span class="nc" id="L285">        Long wordId = (long) 0;</span>
+<span class="nc bnc" id="L286" title="All 2 branches missed.">        if (oid.isPresent()) {</span>
+<span class="nc" id="L287">          wordId = oid.get();</span>
+        }
+
+<span class="nc" id="L290">        List&lt;Long&gt; word = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L291">        word.add(wordId);</span>
+
+<span class="nc" id="L293">        List&lt;Double&gt; count = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L294">        count.add(arg0._2._1._2);</span>
+
+<span class="nc" id="L296">        Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt; wordcount = new Tuple2&lt;&gt;(word, count);</span>
+
+<span class="nc" id="L298">        return new Tuple2&lt;&gt;(arg0._2._1._1, wordcount);</span>
+      }
+
+<span class="nc" id="L301">    }).reduceByKey(new Function2&lt;Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt;, Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt;, Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt;&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt; call(Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt; arg0, Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt; arg1) throws Exception {
+<span class="nc" id="L309">        arg0._1.addAll(arg1._1);</span>
+<span class="nc" id="L310">        arg0._2.addAll(arg1._2);</span>
+<span class="nc" id="L311">        return new Tuple2&lt;&gt;(arg0._1, arg0._2);</span>
+      }
+<span class="nc" id="L313">    }).mapToPair(new PairFunction&lt;Tuple2&lt;String, Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt;&gt;, String, Vector&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;String, Vector&gt; call(Tuple2&lt;String, Tuple2&lt;List&lt;Long&gt;, List&lt;Double&gt;&gt;&gt; arg0) throws Exception {
+<span class="nc" id="L321">        int docsize = arg0._2._1.size();</span>
+<span class="nc" id="L322">        int[] intArray = new int[docsize];</span>
+<span class="nc" id="L323">        double[] doubleArray = new double[docsize];</span>
+<span class="nc bnc" id="L324" title="All 2 branches missed.">        for (int i = 0; i &lt; docsize; i++) {</span>
+<span class="nc" id="L325">          intArray[i] = arg0._2._1.get(i).intValue();</span>
+<span class="nc" id="L326">          doubleArray[i] = arg0._2._2.get(i).intValue();</span>
+        }
+<span class="nc" id="L328">        Vector sv = Vectors.sparse(wordsize, intArray, doubleArray);</span>
+<span class="nc" id="L329">        return new Tuple2&lt;&gt;(arg0._1, sv);</span>
+      }
+    });
+
+<span class="nc" id="L333">    RowMatrix docwordMatrix = new RowMatrix(docVectorRDD.values().rdd());</span>
+
+<span class="nc" id="L335">    LabeledRowMatrix labeledRowMatrix = new LabeledRowMatrix();</span>
+<span class="nc" id="L336">    labeledRowMatrix.rowMatrix = docwordMatrix;</span>
+<span class="nc" id="L337">    labeledRowMatrix.rowkeys = docVectorRDD.keys().collect();</span>
+<span class="nc" id="L338">    labeledRowMatrix.colkeys = wordIDRDD.keys().collect();</span>
+
+<span class="nc" id="L340">    return labeledRowMatrix;</span>
+  }
+
+  /**
+   * loadVectorFromCSV: Load term vector from csv file.
+   *
+   * @param spark
+   *          spark instance
+   * @param csvFileName
+   *          csv matrix file
+   * @param skipNum
+   *          the numbers of rows which should be skipped Ignore the top skip
+   *          number rows of the csv file
+   * @return JavaPairRDD, each key is a term, and value is the vector of the
+   *         term in feature space.
+   */
+  public static JavaPairRDD&lt;String, Vector&gt; loadVectorFromCSV(SparkDriver spark, String csvFileName, int skipNum) {
+    // skip the first line (header), important!
+<span class="nc" id="L358">    JavaRDD&lt;String&gt; importRDD = spark.sc.textFile(csvFileName);</span>
+<span class="nc" id="L359">    JavaPairRDD&lt;String, Long&gt; importIdRDD = importRDD.zipWithIndex().filter(new Function&lt;Tuple2&lt;String, Long&gt;, Boolean&gt;() {</span>
+      /** */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Boolean call(Tuple2&lt;String, Long&gt; v1) throws Exception {
+<span class="nc bnc" id="L365" title="All 2 branches missed.">        if (v1._2 &gt; (skipNum - 1)) {</span>
+<span class="nc" id="L366">          return true;</span>
+        }
+<span class="nc" id="L368">        return false;</span>
+      }
+    });
+
+<span class="nc bnc" id="L372" title="All 2 branches missed.">    if (importIdRDD.count() == 0) {</span>
+<span class="nc" id="L373">      return null;</span>
+    }
+
+<span class="nc" id="L376">    return importIdRDD.mapToPair(new PairFunction&lt;Tuple2&lt;String, Long&gt;, String, Vector&gt;() {</span>
+      /** */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;String, Vector&gt; call(Tuple2&lt;String, Long&gt; t) throws Exception {
+<span class="nc" id="L382">        String[] fields = t._1.split(&quot;,&quot;);</span>
+<span class="nc" id="L383">        String word = fields[0];</span>
+<span class="nc" id="L384">        int fieldsize = fields.length;</span>
+<span class="nc" id="L385">        int nStart = 1;</span>
+<span class="nc" id="L386">        int nEnd = fieldsize - 1;</span>
+<span class="nc bnc" id="L387" title="All 2 branches missed.">        if (fieldsize &lt; 2) {</span>
+<span class="nc" id="L388">          nStart = 0;</span>
+<span class="nc" id="L389">          nEnd = 0;</span>
+        }
+<span class="nc" id="L391">        String[] numfields = Arrays.copyOfRange(fields, nStart, nEnd);</span>
+
+<span class="nc" id="L393">        double[] nums = Stream.of(numfields).mapToDouble(Double::parseDouble).toArray();</span>
+<span class="nc" id="L394">        Vector vec = Vectors.dense(nums);</span>
+<span class="nc" id="L395">        return new Tuple2&lt;&gt;(word, vec);</span>
+      }
+    });
+  }
+
+  /**
+   * Convert vectorRDD to indexed row matrix.
+   *
+   * @param vecs
+   *          Vector RDD
+   * @return IndexedRowMatrix
+   */
+  public static IndexedRowMatrix buildIndexRowMatrix(JavaRDD&lt;Vector&gt; vecs) {
+<span class="nc" id="L408">    JavaRDD&lt;IndexedRow&gt; indexrows = vecs.zipWithIndex().map(new Function&lt;Tuple2&lt;Vector, Long&gt;, IndexedRow&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public IndexedRow call(Tuple2&lt;Vector, Long&gt; docId) {
+<span class="nc" id="L416">        return new IndexedRow(docId._2, docId._1);</span>
+      }
+    });
+<span class="nc" id="L419">    return new IndexedRowMatrix(indexrows.rdd());</span>
+  }
+
+  /**
+   * Transpose matrix
+   *
+   * @param indexedMatrix
+   *          spark indexed matrix
+   * @return rowmatrix, each row is corresponding to the column in the original
+   *         matrix and vice versa
+   */
+  public static RowMatrix transposeMatrix(IndexedRowMatrix indexedMatrix) {
+<span class="nc" id="L431">    return indexedMatrix.toCoordinateMatrix().transpose().toRowMatrix();</span>
+  }
+
+  /**
+   * Output matrix to a CSV file.
+   *
+   * @param matrix
+   *          spark row matrix
+   * @param rowKeys
+   *          matrix row names
+   * @param colKeys
+   *          matrix coloum names
+   * @param fileName
+   *          csv file name
+   */
+  public static void exportToCSV(RowMatrix matrix, List&lt;String&gt; rowKeys, List&lt;String&gt; colKeys, String fileName) {
+
+<span class="nc bnc" id="L448" title="All 2 branches missed.">    if (matrix.rows().isEmpty()) {</span>
+<span class="nc" id="L449">      return;</span>
+    }
+
+<span class="nc" id="L452">    int rownum = (int) matrix.numRows();</span>
+<span class="nc" id="L453">    int colnum = (int) matrix.numCols();</span>
+<span class="nc" id="L454">    List&lt;Vector&gt; rows = matrix.rows().toJavaRDD().collect();</span>
+
+<span class="nc" id="L456">    File file = new File(fileName);</span>
+<span class="nc bnc" id="L457" title="All 2 branches missed.">    if (file.exists()) {</span>
+<span class="nc" id="L458">      file.delete();</span>
+    }
+    try {
+<span class="nc" id="L461">      file.createNewFile();</span>
+<span class="nc" id="L462">      FileWriter fw = new FileWriter(file.getAbsoluteFile());</span>
+<span class="nc" id="L463">      BufferedWriter bw = new BufferedWriter(fw);</span>
+<span class="nc" id="L464">      String coltitle = &quot; Num&quot; + &quot;,&quot;;</span>
+<span class="nc bnc" id="L465" title="All 2 branches missed.">      for (int j = 0; j &lt; colnum; j++) {</span>
+<span class="nc" id="L466">        coltitle += &quot;\&quot;&quot; + colKeys.get(j) + &quot;\&quot;,&quot;;</span>
+      }
+<span class="nc" id="L468">      coltitle = coltitle.substring(0, coltitle.length() - 1);</span>
+<span class="nc" id="L469">      bw.write(coltitle + &quot;\n&quot;);</span>
+
+<span class="nc bnc" id="L471" title="All 2 branches missed.">      for (int i = 0; i &lt; rownum; i++) {</span>
+<span class="nc" id="L472">        double[] rowvlaue = rows.get(i).toArray();</span>
+<span class="nc" id="L473">        String row = rowKeys.get(i) + &quot;,&quot;;</span>
+<span class="nc bnc" id="L474" title="All 2 branches missed.">        for (int j = 0; j &lt; colnum; j++) {</span>
+<span class="nc" id="L475">          row += rowvlaue[j] + &quot;,&quot;;</span>
+        }
+<span class="nc" id="L477">        row = row.substring(0, row.length() - 1);</span>
+<span class="nc" id="L478">        bw.write(row + &quot;\n&quot;);</span>
+      }
+
+<span class="nc" id="L481">      bw.close();</span>
+
+<span class="nc" id="L483">    } catch (IOException e) {</span>
+<span class="nc" id="L484">      e.printStackTrace();</span>
+
+<span class="nc" id="L486">    }</span>
+<span class="nc" id="L487">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

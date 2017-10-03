@@ -1,13 +1,13 @@
 # Site settings
 title: MUDROD
-subtitle: Mining and Utilizing Dataset Relevancy from Oceanographic Datasets to Improve Data Discovery and Access project funded by NASA AIST (NNX15AM85G) 
+subtitle: Mining and Utilizing Dataset Relevancy from Oceanographic Datasets to Improve Data Discovery and Access project funded by NASA AIST (NNX15AM85G), part of the OceanWorks project.
 baseurl: "" # the subpath of your site, e.g. /blog/
 url: "mudrod.github.io" # the base hostname & protocol for your site
 
 # Build settings
 markdown: kramdown
 
-github: https://github.com/mudrod
+github: https://github.com/aist-oceanworks/mudrod
 google_analytics:
 
 paginate: 10

@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataGenerator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.ssearch.ranking</a> &gt; <span class="el_source">DataGenerator.java</span></div><h1>DataGenerator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.ssearch.ranking;
+
+import au.com.bytecode.opencsv.CSVReader;
+import au.com.bytecode.opencsv.CSVWriter;
+
+import java.io.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
+/**
+ * SVMData is a program designed to create appropriate input data for the RankSVM
+ * algorithm that involves Pairwise Classification.  Specifically, instead of working in
+ * the space of query-document vectors, e.g. x1, x2, x3, we transform them into a new space
+ * in which a pair of documents is represented as the difference between their feature vectors.
+ */
+public class DataGenerator {
+  private static String mySourceDir;
+  private static String myResultDir;
+  private static boolean isMultFiles;
+
+  private static String[] myHeader;
+<span class="nc" id="L36">  private static List&lt;List&lt;String&gt;&gt; myMasterList = new ArrayList&lt;List&lt;String&gt;&gt;();</span>
+
+  // HashMap used for comparing evaluation classes
+<span class="nc" id="L39">  public static final HashMap&lt;String, Integer&gt; map1 = new HashMap&lt;String, Integer&gt;();</span>
+
+  static {
+<span class="nc" id="L42">    map1.put(&quot;Excellent&quot;, 7);</span>
+<span class="nc" id="L43">    map1.put(&quot;Very good&quot;, 6);</span>
+<span class="nc" id="L44">    map1.put(&quot;Good&quot;, 5);</span>
+<span class="nc" id="L45">    map1.put(&quot;OK&quot;, 4);</span>
+<span class="nc" id="L46">    map1.put(&quot;Bad&quot;, 3);</span>
+<span class="nc" id="L47">    map1.put(&quot;Very bad&quot;, 2);</span>
+<span class="nc" id="L48">    map1.put(&quot;Terrible&quot;, 1);</span>
+<span class="nc" id="L49">  }</span>
+
+  /**
+   * Constructor which takes in path containing one or multiple files to process.
+   * Also takes in argument specifying whether or not a single file needs to be processed,
+   * or multiple files need to be processed.
+   *
+   * @param sourceDir directory containing single file or multiple files to be processed
+   * @param resultDir output folder
+   * @param multFiles true if multiple files in directory need to be processed and false if
+   *                  only a single file needs to be processed
+   */
+<span class="nc" id="L61">  public DataGenerator(String sourceDir, String resultDir, boolean multFiles) {</span>
+<span class="nc" id="L62">    mySourceDir = sourceDir;</span>
+<span class="nc" id="L63">    myResultDir = resultDir;</span>
+<span class="nc" id="L64">    isMultFiles = multFiles;</span>
+<span class="nc" id="L65">  }</span>
+
+  /**
+   * Responsible for invoking the processing of data file(s) and their subsequent storage
+   * into a user specified directory.
+   */
+  public void process() {
+<span class="nc" id="L72">    parseFile();</span>
+<span class="nc" id="L73">    writeCSVfile(myMasterList);</span>
+<span class="nc" id="L74">  }</span>
+
+  /**
+   * Parses the original user-specified CSV file, storing the contents for future calculations
+   * and formatting.
+   */
+  public static void parseFile() {
+<span class="nc" id="L81">    String[][] dataArr = null;</span>
+    try {
+<span class="nc" id="L83">      String sourceDir = mySourceDir;</span>
+
+<span class="nc bnc" id="L85" title="All 2 branches missed.">      if (isMultFiles == true) // Case where multiple files have to be processed</span>
+      {
+        // Iterate over files in directory 
+<span class="nc" id="L88">        File directory = new File(sourceDir);</span>
+<span class="nc" id="L89">        File[] directoryListing = directory.listFiles();</span>
+
+<span class="nc bnc" id="L91" title="All 2 branches missed.">        if (directoryListing != null) {</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">          for (File child : directoryListing) {</span>
+<span class="nc" id="L93">            CSVReader csvReader = new CSVReader(new FileReader(child));</span>
+<span class="nc" id="L94">            List&lt;String[]&gt; list = csvReader.readAll();</span>
+
+            // Store into 2D array by transforming array list to normal array
+<span class="nc" id="L97">            dataArr = new String[list.size()][];</span>
+<span class="nc" id="L98">            dataArr = list.toArray(dataArr);</span>
+
+<span class="nc" id="L100">            calculateVec(dataArr);</span>
+
+<span class="nc" id="L102">            csvReader.close();</span>
+          }
+<span class="nc" id="L104">          storeHead(dataArr); // Store the header</span>
+        }
+<span class="nc" id="L106">      } else // Process only one file</span>
+      {
+<span class="nc" id="L108">        File file = new File(sourceDir);</span>
+
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        if (file != null) {</span>
+<span class="nc" id="L111">          CSVReader csvReader = new CSVReader(new FileReader(file));</span>
+<span class="nc" id="L112">          List&lt;String[]&gt; list = csvReader.readAll();</span>
+
+          // Store into 2D array by transforming array list to normal array
+<span class="nc" id="L115">          dataArr = new String[list.size()][];</span>
+<span class="nc" id="L116">          dataArr = list.toArray(dataArr);</span>
+
+<span class="nc" id="L118">          storeHead(dataArr); // Store the header</span>
+<span class="nc" id="L119">          calculateVec(dataArr);</span>
+
+<span class="nc" id="L121">          csvReader.close();</span>
+        }
+      }
+<span class="nc" id="L124">    } catch (FileNotFoundException e) {</span>
+<span class="nc" id="L125">      e.printStackTrace();</span>
+<span class="nc" id="L126">    } catch (IOException e) {</span>
+<span class="nc" id="L127">      e.printStackTrace();</span>
+<span class="nc" id="L128">    }</span>
+<span class="nc" id="L129">  }</span>
+
+  /**
+   * Performs the necessary vector calculations on each possible combination of vectors,
+   * also storing a value that indicates the evaluation.
+   *
+   * @param arr the parsed contents of the original CSV file
+   */
+  public static void calculateVec(String[][] arr) {
+<span class="nc" id="L138">    List&lt;List&lt;String&gt;&gt; listofLists = new ArrayList&lt;List&lt;String&gt;&gt;(); // Holds calculations </span>
+
+<span class="nc" id="L140">    int rowStart = 1;</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">    for (int row = rowStart; row &lt; arr.length; row++) // Start at row 1 because row 0 is heading lol</span>
+    {
+<span class="nc bnc" id="L143" title="All 2 branches missed.">      for (int i = 1; i &lt; arr.length - row; i++) {</span>
+<span class="nc" id="L144">        List&lt;String&gt; colList = new ArrayList&lt;String&gt;(); // create vector to store all values inside of a column, which is stored inside 2D vector</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">        for (int col = 0; col &lt; arr[0].length - 1; col++) // Columns go until the next to last column</span>
+        {
+          //System.out.println(col + &quot; &quot; + arr[row][col]);
+          // Extract double value from each cell
+<span class="nc" id="L149">          double x1 = Double.parseDouble(arr[row][col]);</span>
+<span class="nc" id="L150">          double x2 = Double.parseDouble(arr[row + i][col]);</span>
+
+          // Perform calculation for each cell
+<span class="nc" id="L153">          double result = x1 - x2;</span>
+
+          // Convert this double value into string, and store inside array list
+<span class="nc" id="L156">          String strResult = Double.toString(result);</span>
+<span class="nc" id="L157">          colList.add(strResult);</span>
+        }
+
+        // Finally, add either 1, -1, or do not add row at all when encountering evaluation value
+<span class="nc" id="L161">        int addEvalNum = compareEvaluation(arr[row][arr[0].length - 1], arr[row + i][arr[0].length - 1]);</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">        if (addEvalNum == 1) {</span>
+<span class="nc" id="L163">          colList.add(&quot;1&quot;);</span>
+<span class="nc" id="L164">          listofLists.add(colList); // Add this list to 2D list - row is finished now, move on</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">        } else if (addEvalNum == -1) {</span>
+<span class="nc" id="L166">          colList.add(&quot;-1&quot;);</span>
+<span class="nc" id="L167">          listofLists.add(colList); // Add this list to 2D list - row is finished now, move on</span>
+        }
+        // Else, they are equal, do not even add this row to 2D vector
+      }
+    }
+
+    // After all processing takes place, send to method that recreates data with equal # of 1's and -1's
+<span class="nc" id="L174">    List&lt;List&lt;String&gt;&gt; equalizedList = equalizeList(listofLists);</span>
+<span class="nc" id="L175">    myMasterList.addAll(equalizedList);</span>
+<span class="nc" id="L176">  }</span>
+
+  /**
+   * Taking in two vector evaluation parameters, compares these two evaluations, returning a 1
+   * if the first evaluation is greater than the second, a -1 in the case the first evaluation is
+   * less than the second, and a 10 in the case that the two are equal, meaning this vector will
+   * not be used.
+   *
+   * @param eval1 evaluation from first vector
+   * @param eval2 evaluation from second vector
+   * @return 1 if first evaluation is greater than the second, -1 if first evaluation is less than the second, and
+   * 10 in the case that the two are equal
+   */
+  public static int compareEvaluation(String eval1, String eval2) {
+<span class="nc" id="L190">    int evalNum1 = map1.get(eval1);</span>
+<span class="nc" id="L191">    int evalNum2 = map1.get(eval2);</span>
+
+<span class="nc bnc" id="L193" title="All 2 branches missed.">    if (evalNum1 &gt; evalNum2) // &quot;&gt;&quot; means it is more relevant - assign a 1</span>
+    {
+<span class="nc" id="L195">      return 1;</span>
+<span class="nc bnc" id="L196" title="All 2 branches missed.">    } else if (evalNum1 &lt; evalNum2) {</span>
+<span class="nc" id="L197">      return -1;</span>
+    } else {
+<span class="nc" id="L199">      return 10; // Return 10 if they are equal - signifies you cannot use the row</span>
+    }
+  }
+
+  /**
+   * After vector calculations and new evaluation values are set, produces refined output data such that
+   * there is an equal or close to equal number of rows containing both &quot;1&quot; and &quot;-1&quot; as the new evaluation value.
+   *
+   * @param rawList originally calculated data from the input CSV file
+   * @return data that has an equal distribution of evaluation values
+   */
+  public static List&lt;List&lt;String&gt;&gt; equalizeList(List&lt;List&lt;String&gt;&gt; rawList) {
+    // Create two sets - one containing row index for +1 and the other for -1
+<span class="nc" id="L212">    List&lt;Integer&gt; pos1List = new ArrayList&lt;Integer&gt;();</span>
+<span class="nc" id="L213">    List&lt;Integer&gt; neg1List = new ArrayList&lt;Integer&gt;();</span>
+
+<span class="nc bnc" id="L215" title="All 2 branches missed.">    for (int i = 0; i &lt; rawList.size(); i++) // Iterate through all rows to get indexes</span>
+    {
+<span class="nc" id="L217">      int evalNum = Integer.parseInt(rawList.get(i).get(rawList.get(0).size() - 1)); // Get 1 or -1 from original array list</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">      if (evalNum == 1) {</span>
+<span class="nc" id="L219">        pos1List.add(i); // Add row index that has 1</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">      } else if (evalNum == -1) {</span>
+<span class="nc" id="L221">        neg1List.add(i); // Add row index that has -1</span>
+      }
+    }
+
+<span class="nc" id="L225">    int totPosCount = pos1List.size(); // Total # of 1's</span>
+<span class="nc" id="L226">    int totNegCount = neg1List.size(); // Total # of -1's</span>
+
+<span class="nc bnc" id="L228" title="All 2 branches missed.">    if ((totPosCount - totNegCount) &gt;= 1) // There are more 1's than -1's, equalize them</span>
+    {
+<span class="nc" id="L230">      int indexOfPosList = 0; // Start getting indexes from the first index of positive index location list</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">      while ((totPosCount - totNegCount) &gt;= 1) // Keep going until we have acceptable amount of both +1 and -1</span>
+      {
+<span class="nc" id="L233">        int pos1IndexVal = pos1List.get(indexOfPosList); // Get index from previously made list of indexes</span>
+<span class="nc bnc" id="L234" title="All 2 branches missed.">        for (int col = 0; col &lt; rawList.get(0).size(); col++) // Go through elements of indexed row, negating it to transform to -1 row</span>
+        {
+<span class="nc" id="L236">          double d = Double.parseDouble(rawList.get(pos1IndexVal).get(col)); // Transform to double first</span>
+<span class="nc" id="L237">          d = d * -1; // Negate it</span>
+<span class="nc" id="L238">          String negatedValue = Double.toString(d); // Change back to String</span>
+<span class="nc" id="L239">          rawList.get(pos1IndexVal).set(col, negatedValue);// Put this value back into dat row</span>
+        }
+
+<span class="nc" id="L242">        totPosCount--; // We changed a +1 row to a -1 row, decrement count of positives</span>
+<span class="nc" id="L243">        totNegCount++; // Increment count of negatives</span>
+<span class="nc" id="L244">        indexOfPosList++; // Get next +1 location in raw data</span>
+<span class="nc" id="L245">      }</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">    } else if ((totNegCount - totPosCount) &gt; 1) // There are more -1's than 1's, equalize them</span>
+    {
+<span class="nc" id="L248">      int indexOfNegList = 0;</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">      while ((totNegCount - totPosCount) &gt; 1) // Keep going until we have acceptable amount of both +1 and -1</span>
+      {
+<span class="nc" id="L251">        int neg1IndexVal = neg1List.get(indexOfNegList); // Get index from previously made list of indexes</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">        for (int col = 0; col &lt; rawList.get(0).size(); col++) // Go through elements of indexed row, negating it to transform to +1 row</span>
+        {
+<span class="nc" id="L254">          double d = Double.parseDouble(rawList.get(neg1IndexVal).get(col)); // Transform to double first</span>
+<span class="nc" id="L255">          d = d * -1; // Negate it</span>
+<span class="nc" id="L256">          String negatedValue = Double.toString(d); // Change back to String</span>
+<span class="nc" id="L257">          rawList.get(neg1IndexVal).set(col, negatedValue);// Put this value back into dat row</span>
+        }
+
+<span class="nc" id="L260">        totNegCount--; // We changed a -1 row to a +1 row, decrement count of negatives now</span>
+<span class="nc" id="L261">        totPosCount++; // Increment count of positives</span>
+<span class="nc" id="L262">        indexOfNegList++; // Get next -1 location in raw data</span>
+<span class="nc" id="L263">      }</span>
+    } else {
+      // Do nothing - rows are within acceptable equality bounds of plus or minus 1
+    }
+
+<span class="nc" id="L268">    return rawList;</span>
+  }
+
+  /**
+   * Retrieves the heading from a file to be processed so it can be written to the output file later.
+   *
+   * @param arr 2D array containing the parsed information from input file
+   */
+  public static void storeHead(String[][] arr) {
+<span class="nc" id="L277">    myHeader = new String[arr[0].length]; // Reside private variable</span>
+
+<span class="nc bnc" id="L279" title="All 2 branches missed.">    for (int col = 0; col &lt; arr[0].length; col++) {</span>
+<span class="nc" id="L280">      myHeader[col] = arr[0][col];</span>
+    }
+<span class="nc" id="L282">  }</span>
+
+  /**
+   * Writes newly calculated and equally distributed vector data to user specified CSV file.
+   *
+   * @param list finalized vector data to write to user specified output file
+   */
+  public static void writeCSVfile(List&lt;List&lt;String&gt;&gt; list) {
+<span class="nc" id="L290">    String outputFile = myResultDir;</span>
+<span class="nc" id="L291">    boolean alreadyExists = new File(outputFile).exists();</span>
+
+    try {
+<span class="nc" id="L294">      CSVWriter csvOutput = new CSVWriter(new FileWriter(outputFile), ','); // Create new instance of CSVWriter to write to file output</span>
+
+<span class="nc bnc" id="L296" title="All 2 branches missed.">      if (!alreadyExists) {</span>
+<span class="nc" id="L297">        csvOutput.writeNext(myHeader); // Write the text headers first before data</span>
+
+<span class="nc bnc" id="L299" title="All 2 branches missed.">        for (int i = 0; i &lt; list.size(); i++) // Iterate through all rows in 2D array</span>
+        {
+<span class="nc" id="L301">          String[] temp = new String[list.get(i).size()]; // Convert row array list in 2D array to regular string array</span>
+<span class="nc" id="L302">          temp = list.get(i).toArray(temp);</span>
+<span class="nc" id="L303">          csvOutput.writeNext(temp); // Write this array to the file</span>
+        }
+      }
+
+<span class="nc" id="L307">      csvOutput.close(); // Close csvWriter</span>
+<span class="nc" id="L308">    } catch (IOException e) {</span>
+<span class="nc" id="L309">      e.printStackTrace();</span>
+<span class="nc" id="L310">    }</span>
+<span class="nc" id="L311">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

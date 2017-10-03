@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ClickstreamImporter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.ssearch</a> &gt; <span class="el_source">ClickstreamImporter.java</span></div><h1>ClickstreamImporter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.ssearch;
+
+import gov.nasa.jpl.mudrod.discoveryengine.MudrodAbstract;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.Properties;
+
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+
+/**
+ * Supports ability to import click stream data into Elasticsearch
+ * through .csv file
+ */
+public class ClickstreamImporter extends MudrodAbstract {
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+
+  public ClickstreamImporter(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L43">    super(props, es, spark);</span>
+<span class="nc" id="L44">    addClickStreamMapping();</span>
+<span class="nc" id="L45">  }</span>
+
+  /**
+   * Method to add Elasticsearch mapping for click stream data
+   */
+  public void addClickStreamMapping() {
+    XContentBuilder Mapping;
+    try {
+<span class="nc" id="L53">      Mapping = jsonBuilder().startObject().startObject(</span>
+<span class="nc" id="L54">              props.getProperty(MudrodConstants.CLICK_STREAM_MATRIX_TYPE)).startObject(</span>
+<span class="nc" id="L55">                      &quot;properties&quot;).startObject(&quot;query&quot;).field(&quot;type&quot;, &quot;string&quot;).field(</span>
+<span class="nc" id="L56">                              &quot;index&quot;, &quot;not_analyzed&quot;).endObject().startObject(&quot;dataID&quot;).field(</span>
+<span class="nc" id="L57">                                      &quot;type&quot;, &quot;string&quot;).field(&quot;index&quot;, &quot;not_analyzed&quot;).endObject()</span>
+
+<span class="nc" id="L59">          .endObject().endObject().endObject();</span>
+
+<span class="nc" id="L61">      es.getClient().admin().indices().preparePutMapping(</span>
+<span class="nc" id="L62">              props.getProperty(MudrodConstants.ES_INDEX_NAME)).setType(</span>
+<span class="nc" id="L63">                      props.getProperty(MudrodConstants.CLICK_STREAM_MATRIX_TYPE)).setSource(</span>
+<span class="nc" id="L64">                              Mapping).execute().actionGet();</span>
+<span class="nc" id="L65">    } catch (IOException e) {</span>
+<span class="nc" id="L66">      e.printStackTrace();</span>
+<span class="nc" id="L67">    }</span>
+<span class="nc" id="L68">  }</span>
+
+  /**
+   * Method to import click stream CSV into Elasticsearch
+   */
+  public void importfromCSVtoES() {
+<span class="nc" id="L74">    es.deleteType(props.getProperty(MudrodConstants.ES_INDEX_NAME), </span>
+<span class="nc" id="L75">            props.getProperty(MudrodConstants.CLICK_STREAM_MATRIX_TYPE));</span>
+<span class="nc" id="L76">    es.createBulkProcessor();</span>
+
+<span class="nc" id="L78">    BufferedReader br = null;</span>
+<span class="nc" id="L79">    String cvsSplitBy = &quot;,&quot;;</span>
+
+    try {
+<span class="nc" id="L82">      br = new BufferedReader(new FileReader(props.getProperty(&quot;clickstreamMatrix&quot;)));</span>
+<span class="nc" id="L83">      String line = br.readLine();</span>
+      // first item needs to be skipped
+<span class="nc" id="L85">      String[] dataList = line.split(cvsSplitBy);</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">      while ((line = br.readLine()) != null) {</span>
+<span class="nc" id="L87">        String[] clicks = line.split(cvsSplitBy);</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        for (int i = 1; i &lt; clicks.length; i++) {</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">          if (!&quot;0.0&quot;.equals(clicks[i])) {</span>
+<span class="nc" id="L90">            IndexRequest ir = new IndexRequest(props.getProperty(MudrodConstants.ES_INDEX_NAME), </span>
+<span class="nc" id="L91">                    props.getProperty(MudrodConstants.CLICK_STREAM_MATRIX_TYPE))</span>
+<span class="nc" id="L92">                .source(jsonBuilder().startObject().field(&quot;query&quot;, clicks[0]).field(</span>
+<span class="nc" id="L93">                        &quot;dataID&quot;, dataList[i]).field(&quot;clicks&quot;, clicks[i]).endObject());</span>
+<span class="nc" id="L94">            es.getBulkProcessor().add(ir);</span>
+          }
+        }
+<span class="nc" id="L97">      }</span>
+<span class="nc" id="L98">    } catch (FileNotFoundException e) {</span>
+<span class="nc" id="L99">      e.printStackTrace();</span>
+<span class="nc" id="L100">    } catch (IOException e) {</span>
+<span class="nc" id="L101">      e.printStackTrace();</span>
+    } finally {
+<span class="nc bnc" id="L103" title="All 8 branches missed.">      if (br != null) {</span>
+        try {
+<span class="nc" id="L105">          br.close();</span>
+<span class="nc" id="L106">          es.destroyBulkProcessor();</span>
+<span class="nc" id="L107">        } catch (IOException e) {</span>
+<span class="nc" id="L108">          e.printStackTrace();</span>
+<span class="nc" id="L109">        }</span>
+      }
+    }
+<span class="nc" id="L112">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

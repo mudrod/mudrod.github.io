@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MetadataExtractor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.metadata.structure</a> &gt; <span class="el_source">MetadataExtractor.java</span></div><h1>MetadataExtractor.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.metadata.structure;
+
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.Function2;
+import org.apache.spark.api.java.function.PairFunction;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import scala.Tuple2;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+
+public class MetadataExtractor implements Serializable {
+
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+
+<span class="nc" id="L41">  public MetadataExtractor() {</span>
+<span class="nc" id="L42">  }</span>
+
+  /**
+   * loadMetadata:Load all metadata from Elasticsearch and convert them to
+   * pairRDD Please make sure metadata has been already harvested from web
+   * service and stored in Elasticsearch.
+   *
+   * @param es    an Elasticsearch client node instance
+   * @param sc    spark context
+   * @param index index name of log processing application
+   * @param type  metadata type name
+   * @return PairRDD, in each pair key is metadata short name and value is term
+   * list extracted from metadata variables.
+   */
+  public JavaPairRDD&lt;String, List&lt;String&gt;&gt; loadMetadata(ESDriver es, JavaSparkContext sc, String index, String type) {
+<span class="nc" id="L57">    List&lt;PODAACMetadata&gt; metadatas = this.loadMetadataFromES(es, index, type);</span>
+<span class="nc" id="L58">    JavaPairRDD&lt;String, List&lt;String&gt;&gt; metadataTermsRDD = this.buildMetadataRDD(es, sc, index, metadatas);</span>
+<span class="nc" id="L59">    return metadataTermsRDD;</span>
+  }
+
+  /**
+   * loadMetadataFromES: Load all metadata from Elasticsearch.
+   *
+   * @param es    an Elasticsearch client node instance
+   * @param index index name of log processing application
+   * @param type  metadata type name
+   * @return metadata list
+   */
+  protected List&lt;PODAACMetadata&gt; loadMetadataFromES(ESDriver es, String index, String type) {
+
+<span class="nc" id="L72">    List&lt;PODAACMetadata&gt; metadatas = new ArrayList&lt;PODAACMetadata&gt;();</span>
+<span class="nc" id="L73">    SearchResponse scrollResp = es.getClient().prepareSearch(index).setTypes(type).setQuery(QueryBuilders.matchAllQuery()).setScroll(new TimeValue(60000)).setSize(100).execute().actionGet();</span>
+
+    while (true) {
+<span class="nc bnc" id="L76" title="All 2 branches missed.">      for (SearchHit hit : scrollResp.getHits().getHits()) {</span>
+<span class="nc" id="L77">        Map&lt;String, Object&gt; result = hit.getSource();</span>
+<span class="nc" id="L78">        String shortname = (String) result.get(&quot;Dataset-ShortName&quot;);</span>
+<span class="nc" id="L79">        List&lt;String&gt; topic = (List&lt;String&gt;) result.get(&quot;DatasetParameter-Topic&quot;);</span>
+<span class="nc" id="L80">        List&lt;String&gt; term = (List&lt;String&gt;) result.get(&quot;DatasetParameter-Term&quot;);</span>
+<span class="nc" id="L81">        List&lt;String&gt; keyword = (List&lt;String&gt;) result.get(&quot;Dataset-Metadata&quot;);</span>
+<span class="nc" id="L82">        List&lt;String&gt; variable = (List&lt;String&gt;) result.get(&quot;DatasetParameter-Variable&quot;);</span>
+<span class="nc" id="L83">        List&lt;String&gt; longname = (List&lt;String&gt;) result.get(&quot;DatasetProject-Project-LongName&quot;);</span>
+
+<span class="nc" id="L85">        List&lt;String&gt; region = (List&lt;String&gt;) result.get(&quot;DatasetRegion-Region&quot;);</span>
+
+<span class="nc" id="L87">        PODAACMetadata metadata = null;</span>
+        try {
+<span class="nc" id="L89">          metadata = new PODAACMetadata(shortname, longname, es.customAnalyzing(index, topic), es.customAnalyzing(index, term), es.customAnalyzing(index, variable), es.customAnalyzing(index, keyword),</span>
+<span class="nc" id="L90">              es.customAnalyzing(index, region));</span>
+<span class="nc" id="L91">        } catch (InterruptedException | ExecutionException e) {</span>
+<span class="nc" id="L92">          e.printStackTrace();</span>
+
+<span class="nc" id="L94">        }</span>
+<span class="nc" id="L95">        metadatas.add(metadata);</span>
+      }
+<span class="nc" id="L97">      scrollResp = es.getClient().prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(600000)).execute().actionGet();</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">      if (scrollResp.getHits().getHits().length == 0) {</span>
+<span class="nc" id="L99">        break;</span>
+      }
+    }
+
+<span class="nc" id="L103">    return metadatas;</span>
+  }
+
+  /**
+   * buildMetadataRDD: Convert metadata list to JavaPairRDD
+   *
+   * @param es        an Elasticsearch client node instance
+   * @param sc        spark context
+   * @param index     index name of log processing application
+   * @param metadatas metadata list
+   * @return PairRDD, in each pair key is metadata short name and value is term
+   * list extracted from metadata variables.
+   */
+  protected JavaPairRDD&lt;String, List&lt;String&gt;&gt; buildMetadataRDD(ESDriver es, JavaSparkContext sc, String index, List&lt;PODAACMetadata&gt; metadatas) {
+<span class="nc" id="L117">    JavaRDD&lt;PODAACMetadata&gt; metadataRDD = sc.parallelize(metadatas);</span>
+<span class="nc" id="L118">    JavaPairRDD&lt;String, List&lt;String&gt;&gt; metadataTermsRDD = metadataRDD.mapToPair(new PairFunction&lt;PODAACMetadata, String, List&lt;String&gt;&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;String, List&lt;String&gt;&gt; call(PODAACMetadata metadata) throws Exception {
+<span class="nc" id="L126">        return new Tuple2&lt;String, List&lt;String&gt;&gt;(metadata.getShortName(), metadata.getAllTermList());</span>
+      }
+<span class="nc" id="L128">    }).reduceByKey(new Function2&lt;List&lt;String&gt;, List&lt;String&gt;, List&lt;String&gt;&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public List&lt;String&gt; call(List&lt;String&gt; v1, List&lt;String&gt; v2) throws Exception {
+<span class="nc" id="L136">        List&lt;String&gt; list = new ArrayList&lt;String&gt;();</span>
+<span class="nc" id="L137">        list.addAll(v1);</span>
+<span class="nc" id="L138">        list.addAll(v2);</span>
+<span class="nc" id="L139">        return list;</span>
+      }
+    });
+
+<span class="nc" id="L143">    return metadataTermsRDD;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

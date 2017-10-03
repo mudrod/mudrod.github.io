@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CrawlerDetection.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.pre</a> &gt; <span class="el_source">CrawlerDetection.java</span></div><h1>CrawlerDetection.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.weblog.pre;
+
+import gov.nasa.jpl.mudrod.discoveryengine.DiscoveryStepAbstract;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.function.FlatMapFunction;
+import org.apache.spark.api.java.function.Function2;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.AggregationBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
+import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
+import org.elasticsearch.search.aggregations.bucket.histogram.Histogram.Order;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.joda.time.DateTime;
+import org.joda.time.Seconds;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.ISODateTimeFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * An {@link DiscoveryStepAbstract}
+ * implementation which detects a known list of Web crawlers which may may be
+ * present within, and pollute various logs acting as input to Mudrod.
+ */
+public class CrawlerDetection extends LogAbstract {
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L57">  private static final Logger LOG = LoggerFactory.getLogger(CrawlerDetection.class);</span>
+
+  public static final String CRAWLER = &quot;crawler&quot;;
+  public static final String GOOGLE_BOT = &quot;googlebot&quot;;
+  public static final String BING_BOT = &quot;bingbot&quot;;
+  public static final String YAHOO_BOT = &quot;slurp&quot;;
+  public static final String YACY_BOT = &quot;yacybot&quot;;
+  public static final String ROGER_BOT = &quot;rogerbot&quot;;
+  public static final String YANDEX_BOT = &quot;yandexbot&quot;;
+
+  public static final String NO_AGENT_BOT = &quot;-&quot;;
+  public static final String PERL_BOT = &quot;libwww-perl/&quot;;
+  public static final String APACHE_HHTP = &quot;apache-httpclient/&quot;;
+  public static final String JAVA_CLIENT = &quot;java/&quot;;
+  public static final String CURL = &quot;curl/&quot;;
+
+  /**
+   * Paramterized constructor to instantiate a configured instance of
+   * {@link CrawlerDetection}
+   *
+   * @param props populated {@link java.util.Properties} object
+   * @param es    {@link ESDriver} object to use in
+   *              crawler detection preprocessing.
+   * @param spark {@link SparkDriver} object to use in
+   *              crawler detection preprocessing.
+   */
+  public CrawlerDetection(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L84">    super(props, es, spark);</span>
+<span class="nc" id="L85">  }</span>
+
+  public CrawlerDetection() {
+<span class="nc" id="L88">    super(null, null, null);</span>
+<span class="nc" id="L89">  }</span>
+
+  @Override
+  public Object execute() {
+<span class="nc" id="L93">    LOG.info(&quot;Starting Crawler detection {}.&quot;, httpType);</span>
+<span class="nc" id="L94">    startTime = System.currentTimeMillis();</span>
+    try {
+<span class="nc" id="L96">      checkByRate();</span>
+<span class="nc" id="L97">    } catch (InterruptedException | IOException e) {</span>
+<span class="nc" id="L98">      LOG.error(&quot;Encountered an error whilst detecting Web crawlers.&quot;, e);</span>
+<span class="nc" id="L99">    }</span>
+<span class="nc" id="L100">    endTime = System.currentTimeMillis();</span>
+<span class="nc" id="L101">    es.refreshIndex();</span>
+<span class="nc" id="L102">    LOG.info(&quot;Crawler detection complete. Time elapsed {} seconds&quot;, (endTime - startTime) / 1000);</span>
+<span class="nc" id="L103">    return null;</span>
+  }
+
+  /**
+   * Check known crawler through crawler agent name list
+   *
+   * @param agent name of a log line
+   * @return 1 if the log is initiated by crawler, 0 otherwise
+   */
+  public boolean checkKnownCrawler(String agent) {
+<span class="nc" id="L113">    agent = agent.toLowerCase();</span>
+<span class="nc bnc" id="L114" title="All 12 branches missed.">    if (agent.contains(CRAWLER) || agent.contains(GOOGLE_BOT) || agent.contains(BING_BOT) || agent.contains(APACHE_HHTP) || agent.contains(PERL_BOT) || agent.contains(YAHOO_BOT) || agent</span>
+<span class="nc bnc" id="L115" title="All 12 branches missed.">        .contains(YANDEX_BOT) || agent.contains(NO_AGENT_BOT) || agent.contains(PERL_BOT) || agent.contains(APACHE_HHTP) || agent.contains(JAVA_CLIENT) || agent.contains(CURL)) {</span>
+<span class="nc" id="L116">      return true;</span>
+    } else {
+<span class="nc" id="L118">      return false;</span>
+    }
+  }
+
+  public void checkByRate() throws InterruptedException, IOException {
+<span class="nc" id="L123">    String processingType = props.getProperty(MudrodConstants.PROCESS_TYPE);</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">    if (processingType.equals(&quot;sequential&quot;)) {</span>
+<span class="nc" id="L125">      checkByRateInSequential();</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">    } else if (processingType.equals(&quot;parallel&quot;)) {</span>
+<span class="nc" id="L127">      checkByRateInParallel();</span>
+    }
+<span class="nc" id="L129">  }</span>
+
+  /**
+   * Check crawler by request sending rate, which is read from configruation
+   * file
+   *
+   * @throws InterruptedException InterruptedException
+   * @throws IOException          IOException
+   */
+  public void checkByRateInSequential() throws InterruptedException, IOException {
+<span class="nc" id="L139">    es.createBulkProcessor();</span>
+
+<span class="nc" id="L141">    int rate = Integer.parseInt(props.getProperty(&quot;sendingrate&quot;));</span>
+
+<span class="nc" id="L143">    Terms users = this.getUserTerms(this.httpType);</span>
+<span class="nc" id="L144">    LOG.info(&quot;Original User count: {}&quot;, Integer.toString(users.getBuckets().size()));</span>
+
+<span class="nc" id="L146">    int userCount = 0;</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">    for (Terms.Bucket entry : users.getBuckets()) {</span>
+<span class="nc" id="L148">      String user = entry.getKey().toString();</span>
+<span class="nc" id="L149">      int count = checkByRate(es, user);</span>
+<span class="nc" id="L150">      userCount += count;</span>
+<span class="nc" id="L151">    }</span>
+<span class="nc" id="L152">    es.destroyBulkProcessor();</span>
+<span class="nc" id="L153">    LOG.info(&quot;User count: {}&quot;, Integer.toString(userCount));</span>
+<span class="nc" id="L154">  }</span>
+
+  void checkByRateInParallel() throws InterruptedException, IOException {
+
+<span class="nc" id="L158">    JavaRDD&lt;String&gt; userRDD = getUserRDD(this.httpType);</span>
+<span class="nc" id="L159">    LOG.info(&quot;Original User count: {}&quot;, userRDD.count());</span>
+
+<span class="nc" id="L161">    int userCount = 0;</span>
+<span class="nc" id="L162">    userCount = userRDD.mapPartitions((FlatMapFunction&lt;Iterator&lt;String&gt;, Integer&gt;) iterator -&gt; {</span>
+<span class="nc" id="L163">      ESDriver tmpES = new ESDriver(props);</span>
+<span class="nc" id="L164">      tmpES.createBulkProcessor();</span>
+<span class="nc" id="L165">      List&lt;Integer&gt; realUserNums = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L166" title="All 2 branches missed.">      while (iterator.hasNext()) {</span>
+<span class="nc" id="L167">        String s = iterator.next();</span>
+<span class="nc" id="L168">        Integer realUser = checkByRate(tmpES, s);</span>
+<span class="nc" id="L169">        realUserNums.add(realUser);</span>
+<span class="nc" id="L170">      }</span>
+<span class="nc" id="L171">      tmpES.destroyBulkProcessor();</span>
+<span class="nc" id="L172">      tmpES.close();</span>
+<span class="nc" id="L173">      return realUserNums.iterator();</span>
+<span class="nc" id="L174">    }).reduce((Function2&lt;Integer, Integer, Integer&gt;) (a, b) -&gt; a + b);</span>
+
+<span class="nc" id="L176">    LOG.info(&quot;User count: {}&quot;, Integer.toString(userCount));</span>
+<span class="nc" id="L177">  }</span>
+
+  private int checkByRate(ESDriver es, String user) {
+
+<span class="nc" id="L181">    int rate = Integer.parseInt(props.getProperty(&quot;sendingrate&quot;));</span>
+<span class="nc" id="L182">    Pattern pattern = Pattern.compile(&quot;get (.*?) http/*&quot;);</span>
+    Matcher matcher;
+
+<span class="nc" id="L185">    BoolQueryBuilder filterSearch = new BoolQueryBuilder();</span>
+<span class="nc" id="L186">    filterSearch.must(QueryBuilders.termQuery(&quot;IP&quot;, user));</span>
+
+<span class="nc" id="L188">    AggregationBuilder aggregation = AggregationBuilders.dateHistogram(&quot;by_minute&quot;).field(&quot;Time&quot;).dateHistogramInterval(DateHistogramInterval.MINUTE).order(Order.COUNT_DESC);</span>
+<span class="nc" id="L189">    SearchResponse checkRobot = es.getClient().prepareSearch(logIndex).setTypes(httpType, ftpType).setQuery(filterSearch).setSize(0).addAggregation(aggregation).execute().actionGet();</span>
+
+<span class="nc" id="L191">    Histogram agg = checkRobot.getAggregations().get(&quot;by_minute&quot;);</span>
+
+<span class="nc" id="L193">    List&lt;? extends Histogram.Bucket&gt; botList = agg.getBuckets();</span>
+<span class="nc" id="L194">    long maxCount = botList.get(0).getDocCount();</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">    if (maxCount &gt;= rate) {</span>
+<span class="nc" id="L196">      return 0;</span>
+    } else {
+<span class="nc" id="L198">      DateTime dt1 = null;</span>
+<span class="nc" id="L199">      int toLast = 0;</span>
+<span class="nc" id="L200">      SearchResponse scrollResp = es.getClient().prepareSearch(logIndex).setTypes(httpType, ftpType).setScroll(new TimeValue(60000)).setQuery(filterSearch).setSize(100).execute().actionGet();</span>
+      while (true) {
+<span class="nc bnc" id="L202" title="All 2 branches missed.">        for (SearchHit hit : scrollResp.getHits().getHits()) {</span>
+<span class="nc" id="L203">          Map&lt;String, Object&gt; result = hit.getSource();</span>
+<span class="nc" id="L204">          String logtype = (String) result.get(&quot;LogType&quot;);</span>
+<span class="nc bnc" id="L205" title="All 2 branches missed.">          if (logtype.equals(&quot;PO.DAAC&quot;)) {</span>
+<span class="nc" id="L206">            String request = (String) result.get(&quot;Request&quot;);</span>
+<span class="nc" id="L207">            matcher = pattern.matcher(request.trim().toLowerCase());</span>
+<span class="nc" id="L208">            boolean find = false;</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">            while (matcher.find()) {</span>
+<span class="nc" id="L210">              request = matcher.group(1);</span>
+<span class="nc" id="L211">              result.put(&quot;RequestUrl&quot;, &quot;http://podaac.jpl.nasa.gov&quot; + request);</span>
+<span class="nc" id="L212">              find = true;</span>
+            }
+<span class="nc bnc" id="L214" title="All 2 branches missed.">            if (!find) {</span>
+<span class="nc" id="L215">              result.put(&quot;RequestUrl&quot;, request);</span>
+            }
+<span class="nc" id="L217">          } else {</span>
+<span class="nc" id="L218">            result.put(&quot;RequestUrl&quot;, result.get(&quot;Request&quot;));</span>
+          }
+
+<span class="nc" id="L221">          DateTimeFormatter fmt = ISODateTimeFormat.dateTime();</span>
+<span class="nc" id="L222">          DateTime dt2 = fmt.parseDateTime((String) result.get(&quot;Time&quot;));</span>
+
+<span class="nc bnc" id="L224" title="All 2 branches missed.">          if (dt1 == null) {</span>
+<span class="nc" id="L225">            toLast = 0;</span>
+          } else {
+<span class="nc" id="L227">            toLast = Math.abs(Seconds.secondsBetween(dt1, dt2).getSeconds());</span>
+          }
+<span class="nc" id="L229">          result.put(&quot;ToLast&quot;, toLast);</span>
+<span class="nc" id="L230">          IndexRequest ir = new IndexRequest(logIndex, cleanupType).source(result);</span>
+
+<span class="nc" id="L232">          es.getBulkProcessor().add(ir);</span>
+<span class="nc" id="L233">          dt1 = dt2;</span>
+        }
+
+<span class="nc" id="L236">        scrollResp = es.getClient().prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(600000)).execute().actionGet();</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">        if (scrollResp.getHits().getHits().length == 0) {</span>
+<span class="nc" id="L238">          break;</span>
+        }
+      }
+
+    }
+
+<span class="nc" id="L244">    return 1;</span>
+  }
+
+  @Override
+  public Object execute(Object o) {
+<span class="nc" id="L249">    return null;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

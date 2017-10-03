@@ -1,0 +1,533 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SessionExtractor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.structure</a> &gt; <span class="el_source">SessionExtractor.java</span></div><h1>SessionExtractor.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.weblog.structure;
+
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.Optional;
+import org.apache.spark.api.java.function.FlatMapFunction;
+import org.apache.spark.api.java.function.Function;
+import org.apache.spark.api.java.function.Function2;
+import org.apache.spark.api.java.function.PairFunction;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import scala.Tuple2;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
+/**
+ * ClassName: SessionExtractor Function: Extract sessions details from
+ * reconstructed sessions.
+ */
+public class SessionExtractor implements Serializable {
+
+<span class="nc" id="L50">  private static final Logger LOG = LoggerFactory.getLogger(SessionExtractor.class);</span>
+
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+
+<span class="nc" id="L57">  public SessionExtractor() {</span>
+    // default constructor
+<span class="nc" id="L59">  }</span>
+
+  /**
+   * extractClickStreamFromES:Extract click streams from logs stored in
+   * Elasticsearch
+   *
+   * @param props
+   *          the Mudrod configuration
+   * @param es
+   *          the Elasticsearch drive
+   * @param spark
+   *          the spark driver
+   * @return clickstream list in JavaRDD format {@link ClickStream}
+   */
+  public JavaRDD&lt;ClickStream&gt; extractClickStreamFromES(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc bnc" id="L74" title="All 10 branches missed.">    switch (props.getProperty(MudrodConstants.PROCESS_TYPE)) {</span>
+      case &quot;sequential&quot;:
+<span class="nc" id="L76">        List&lt;ClickStream&gt; queryList = this.getClickStreamList(props, es);</span>
+<span class="nc" id="L77">        return spark.sc.parallelize(queryList);</span>
+      case &quot;parallel&quot;:
+<span class="nc" id="L79">        return getClickStreamListInParallel(props, spark, es);</span>
+      default:
+<span class="nc" id="L81">      LOG.error(&quot;Error finding processing type for '{}'. Please check your config.xml.&quot;, props.getProperty(MudrodConstants.PROCESS_TYPE));</span>
+    }
+<span class="nc" id="L83">    return null;</span>
+  }
+
+  /**
+   * getClickStreamList:Extract click streams from logs stored in Elasticsearch.
+   *
+   * @param props
+   *          the Mudrod configuration
+   * @param es
+   *          the Elasticsearch driver
+   * @return clickstream list {@link ClickStream}
+   */
+  protected List&lt;ClickStream&gt; getClickStreamList(Properties props, ESDriver es) {
+<span class="nc" id="L96">    List&lt;String&gt; logIndexList = es.getIndexListWithPrefix(props.getProperty(MudrodConstants.LOG_INDEX));</span>
+
+<span class="nc" id="L98">    List&lt;ClickStream&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">    for (int n = 0; n &lt; logIndexList.size(); n++) {</span>
+<span class="nc" id="L100">      String logIndex = logIndexList.get(n);</span>
+      List&lt;String&gt; sessionIdList;
+      try {
+<span class="nc" id="L103">        sessionIdList = this.getSessions(props, es, logIndex);</span>
+<span class="nc" id="L104">        Session session = new Session(props, es);</span>
+<span class="nc" id="L105">        int sessionNum = sessionIdList.size();</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">        for (int i = 0; i &lt; sessionNum; i++) {</span>
+<span class="nc" id="L107">          String[] sArr = sessionIdList.get(i).split(&quot;,&quot;);</span>
+<span class="nc" id="L108">          List&lt;ClickStream&gt; datas = session.getClickStreamList(sArr[1], sArr[2], sArr[0]);</span>
+<span class="nc" id="L109">          result.addAll(datas);</span>
+        }
+<span class="nc" id="L111">      } catch (Exception e) {</span>
+<span class="nc" id="L112">        LOG.error(&quot;Error during extraction of Clickstreams from log index. {}&quot;, e);</span>
+<span class="nc" id="L113">      }</span>
+    }
+
+<span class="nc" id="L116">    return result;</span>
+  }
+
+  protected JavaRDD&lt;ClickStream&gt; getClickStreamListInParallel(Properties props, SparkDriver spark, ESDriver es) {
+
+<span class="nc" id="L121">    List&lt;String&gt; logIndexList = es.getIndexListWithPrefix(props.getProperty(MudrodConstants.LOG_INDEX));</span>
+
+<span class="nc" id="L123">    LOG.info(&quot;Retrieved {}&quot;, logIndexList.toString());</span>
+
+<span class="nc" id="L125">    List&lt;String&gt; sessionIdList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">    for (int n = 0; n &lt; logIndexList.size(); n++) {</span>
+<span class="nc" id="L127">      String logIndex = logIndexList.get(n);</span>
+<span class="nc" id="L128">      List&lt;String&gt; tmpsessionList = this.getSessions(props, es, logIndex);</span>
+<span class="nc" id="L129">      sessionIdList.addAll(tmpsessionList);</span>
+    }
+
+<span class="nc" id="L132">    JavaRDD&lt;String&gt; sessionRDD = spark.sc.parallelize(sessionIdList, 16);</span>
+
+<span class="nc" id="L134">    JavaRDD&lt;ClickStream&gt; clickStreamRDD = sessionRDD.mapPartitions(new FlatMapFunction&lt;Iterator&lt;String&gt;, ClickStream&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Iterator&lt;ClickStream&gt; call(Iterator&lt;String&gt; arg0) throws Exception {
+<span class="nc" id="L142">        ESDriver tmpES = new ESDriver(props);</span>
+<span class="nc" id="L143">        tmpES.createBulkProcessor();</span>
+
+<span class="nc" id="L145">        Session session = new Session(props, tmpES);</span>
+<span class="nc" id="L146">        List&lt;ClickStream&gt; clickstreams = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        while (arg0.hasNext()) {</span>
+<span class="nc" id="L148">          String s = arg0.next();</span>
+<span class="nc" id="L149">          String[] sArr = s.split(&quot;,&quot;);</span>
+<span class="nc" id="L150">          List&lt;ClickStream&gt; clicks = session.getClickStreamList(sArr[1], sArr[2], sArr[0]);</span>
+<span class="nc" id="L151">          clickstreams.addAll(clicks);</span>
+<span class="nc" id="L152">        }</span>
+<span class="nc" id="L153">        tmpES.destroyBulkProcessor();</span>
+<span class="nc" id="L154">        tmpES.close();</span>
+<span class="nc" id="L155">        return clickstreams.iterator();</span>
+      }
+    });
+
+<span class="nc" id="L159">    LOG.info(&quot;Clickstream number: {}&quot;, clickStreamRDD.count());</span>
+
+<span class="nc" id="L161">    return clickStreamRDD;</span>
+  }
+
+  // This function is reserved and not being used for now
+
+  /**
+   * loadClickStremFromTxt:Load click stream form txt file
+   *
+   * @param clickthroughFile
+   *          txt file
+   * @param sc
+   *          the spark context
+   * @return clickstream list in JavaRDD format {@link ClickStream}
+   */
+  public JavaRDD&lt;ClickStream&gt; loadClickStremFromTxt(String clickthroughFile, JavaSparkContext sc) {
+<span class="nc" id="L176">    return sc.textFile(clickthroughFile).flatMap(new FlatMapFunction&lt;String, ClickStream&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @SuppressWarnings(&quot;unchecked&quot;)
+      @Override
+      public Iterator&lt;ClickStream&gt; call(String line) throws Exception {
+<span class="nc" id="L185">        List&lt;ClickStream&gt; clickthroughs = (List&lt;ClickStream&gt;) ClickStream.parseFromTextLine(line);</span>
+<span class="nc" id="L186">        return (Iterator&lt;ClickStream&gt;) clickthroughs;</span>
+      }
+    });
+  }
+
+  /**
+   * bulidDataQueryRDD: convert click stream list to data set queries pairs.
+   *
+   * @param clickstreamRDD:
+   *          click stream data
+   * @param downloadWeight:
+   *          weight of download behavior
+   * @return JavaPairRDD, key is short name of data set, and values are queries
+   */
+  public JavaPairRDD&lt;String, List&lt;String&gt;&gt; bulidDataQueryRDD(JavaRDD&lt;ClickStream&gt; clickstreamRDD, int downloadWeight) {
+<span class="nc" id="L201">    return clickstreamRDD.mapToPair(new PairFunction&lt;ClickStream, String, List&lt;String&gt;&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;String, List&lt;String&gt;&gt; call(ClickStream click) throws Exception {
+<span class="nc" id="L209">        List&lt;String&gt; query = new ArrayList&lt;&gt;();</span>
+        // important! download behavior is given higher weights
+        // than viewing
+        // behavior
+<span class="nc" id="L213">        boolean download = click.isDownload();</span>
+<span class="nc" id="L214">        int weight = 1;</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">        if (download) {</span>
+<span class="nc" id="L216">          weight = downloadWeight;</span>
+        }
+<span class="nc bnc" id="L218" title="All 2 branches missed.">        for (int i = 0; i &lt; weight; i++) {</span>
+<span class="nc" id="L219">          query.add(click.getKeyWords());</span>
+        }
+
+<span class="nc" id="L222">        return new Tuple2&lt;&gt;(click.getViewDataset(), query);</span>
+      }
+<span class="nc" id="L224">    }).reduceByKey(new Function2&lt;List&lt;String&gt;, List&lt;String&gt;, List&lt;String&gt;&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public List&lt;String&gt; call(List&lt;String&gt; v1, List&lt;String&gt; v2) throws Exception {
+<span class="nc" id="L232">        List&lt;String&gt; list = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L233">        list.addAll(v1);</span>
+<span class="nc" id="L234">        list.addAll(v2);</span>
+<span class="nc" id="L235">        return list;</span>
+      }
+    });
+  }
+
+  /**
+   * getSessions: Get sessions from logs
+   *
+   * @param props
+   *          the Mudrod configuration
+   * @param es
+   *          the Elasticsearch driver
+   * @param logIndex
+   *          a log index name
+   * @return list of session names
+   */
+  protected List&lt;String&gt; getSessions(Properties props, ESDriver es, String logIndex) {
+
+<span class="nc" id="L253">    String cleanupPrefix = props.getProperty(MudrodConstants.CLEANUP_TYPE_PREFIX);</span>
+<span class="nc" id="L254">    String sessionStatPrefix = props.getProperty(MudrodConstants.SESSION_STATS_PREFIX);</span>
+
+<span class="nc" id="L256">    List&lt;String&gt; sessions = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L257">    SearchResponse scrollResp = es.getClient().prepareSearch(logIndex).setTypes(sessionStatPrefix).setScroll(new TimeValue(60000)).setQuery(QueryBuilders.matchAllQuery()).setSize(100).execute()</span>
+<span class="nc" id="L258">            .actionGet();</span>
+    while (true) {
+<span class="nc bnc" id="L260" title="All 2 branches missed.">      for (SearchHit hit : scrollResp.getHits().getHits()) {</span>
+<span class="nc" id="L261">        Map&lt;String, Object&gt; session = hit.getSource();</span>
+<span class="nc" id="L262">        String sessionID = (String) session.get(&quot;SessionID&quot;);</span>
+<span class="nc" id="L263">        sessions.add(sessionID + &quot;,&quot; + logIndex + &quot;,&quot; + cleanupPrefix);</span>
+      }
+
+<span class="nc" id="L266">      scrollResp = es.getClient().prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(600000)).execute().actionGet();</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">      if (scrollResp.getHits().getHits().length == 0) {</span>
+<span class="nc" id="L268">        break;</span>
+      }
+    }
+
+<span class="nc" id="L272">    return sessions;</span>
+  }
+
+  public JavaPairRDD&lt;String, Double&gt; bulidUserItermRDD(JavaRDD&lt;ClickStream&gt; clickstreamRDD) {
+<span class="nc" id="L276">    return clickstreamRDD.mapToPair(new PairFunction&lt;ClickStream, String, Double&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;String, Double&gt; call(ClickStream click) throws Exception {
+<span class="nc" id="L284">        double rate = 1;</span>
+<span class="nc" id="L285">        boolean download = click.isDownload();</span>
+<span class="nc bnc" id="L286" title="All 2 branches missed.">        if (download) {</span>
+<span class="nc" id="L287">          rate = 2;</span>
+        }
+
+<span class="nc" id="L290">        String sessionID = click.getSessionID();</span>
+<span class="nc" id="L291">        String user = sessionID.split(&quot;@&quot;)[0];</span>
+
+<span class="nc" id="L293">        return new Tuple2&lt;&gt;(user + &quot;,&quot; + click.getViewDataset(), rate);</span>
+      }
+<span class="nc" id="L295">    }).reduceByKey(new Function2&lt;Double, Double, Double&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Double call(Double v1, Double v2) throws Exception {
+<span class="nc bnc" id="L303" title="All 2 branches missed.">        return v1 &gt;= v2 ? v1 : v2;</span>
+
+      }
+    });
+  }
+
+  public JavaPairRDD&lt;String, Double&gt; bulidSessionItermRDD(JavaRDD&lt;ClickStream&gt; clickstreamRDD) {
+<span class="nc" id="L310">    JavaPairRDD&lt;String, String&gt; sessionItemRDD = clickstreamRDD.mapToPair(new PairFunction&lt;ClickStream, String, String&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;String, String&gt; call(ClickStream click) throws Exception {
+
+<span class="nc" id="L319">        String sessionID = click.getSessionID();</span>
+<span class="nc" id="L320">        return new Tuple2&lt;&gt;(sessionID, click.getViewDataset());</span>
+      }
+<span class="nc" id="L322">    }).distinct();</span>
+
+    // remove some sessions
+<span class="nc" id="L325">    JavaPairRDD&lt;String, Double&gt; sessionItemNumRDD = sessionItemRDD.keys().mapToPair(new PairFunction&lt;String, String, Double&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;String, Double&gt; call(String item) throws Exception {
+<span class="nc" id="L333">        return new Tuple2&lt;&gt;(item, 1.0);</span>
+      }
+<span class="nc" id="L335">    }).reduceByKey(new Function2&lt;Double, Double, Double&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Double call(Double v1, Double v2) throws Exception {
+<span class="nc" id="L343">        return v1 + v2;</span>
+      }
+<span class="nc" id="L345">    }).filter(new Function&lt;Tuple2&lt;String, Double&gt;, Boolean&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Boolean call(Tuple2&lt;String, Double&gt; arg0) throws Exception {
+<span class="nc" id="L353">        Boolean b = true;</span>
+<span class="nc bnc" id="L354" title="All 2 branches missed.">        if (arg0._2 &lt; 2) {</span>
+<span class="nc" id="L355">          b = false;</span>
+        }
+<span class="nc" id="L357">        return b;</span>
+      }
+    });
+
+<span class="nc" id="L361">    return sessionItemNumRDD.leftOuterJoin(sessionItemRDD).mapToPair(new PairFunction&lt;Tuple2&lt;String, Tuple2&lt;Double, Optional&lt;String&gt;&gt;&gt;, String, Double&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;String, Double&gt; call(Tuple2&lt;String, Tuple2&lt;Double, Optional&lt;String&gt;&gt;&gt; arg0) throws Exception {
+
+<span class="nc" id="L370">        Tuple2&lt;Double, Optional&lt;String&gt;&gt; test = arg0._2;</span>
+<span class="nc" id="L371">        Optional&lt;String&gt; optStr = test._2;</span>
+<span class="nc" id="L372">        String item = &quot;&quot;;</span>
+<span class="nc bnc" id="L373" title="All 2 branches missed.">        if (optStr.isPresent()) {</span>
+<span class="nc" id="L374">          item = optStr.get();</span>
+        }
+<span class="nc" id="L376">        return new Tuple2&lt;&gt;(arg0._1 + &quot;,&quot; + item, 1.0);</span>
+      }
+
+    });
+  }
+
+  public JavaPairRDD&lt;String, List&lt;String&gt;&gt; bulidSessionDatasetRDD(Properties props, ESDriver es, SparkDriver spark) {
+
+<span class="nc" id="L384">    List&lt;String&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L385">    List&lt;String&gt; logIndexList = es.getIndexListWithPrefix(props.getProperty(MudrodConstants.LOG_INDEX));</span>
+<span class="nc bnc" id="L386" title="All 2 branches missed.">    for (int n = 0; n &lt; logIndexList.size(); n++) {</span>
+<span class="nc" id="L387">      String logIndex = logIndexList.get(n);</span>
+<span class="nc" id="L388">      SearchResponse scrollResp = es.getClient().prepareSearch(logIndex).setTypes(props.getProperty(MudrodConstants.SESSION_STATS_PREFIX)).setScroll(new TimeValue(60000)).setQuery(QueryBuilders.matchAllQuery())</span>
+<span class="nc" id="L389">              .setSize(100).execute().actionGet();</span>
+      while (true) {
+<span class="nc bnc" id="L391" title="All 2 branches missed.">        for (SearchHit hit : scrollResp.getHits().getHits()) {</span>
+<span class="nc" id="L392">          Map&lt;String, Object&gt; session = hit.getSource();</span>
+<span class="nc" id="L393">          String sessionID = (String) session.get(&quot;SessionID&quot;);</span>
+<span class="nc" id="L394">          String views = (String) session.get(&quot;views&quot;);</span>
+<span class="nc bnc" id="L395" title="All 4 branches missed.">          if (views != null &amp;&amp; !&quot;&quot;.equals(views)) {</span>
+<span class="nc" id="L396">            String sessionItems = sessionID + &quot;:&quot; + views;</span>
+<span class="nc" id="L397">            result.add(sessionItems);</span>
+          }
+        }
+
+<span class="nc" id="L401">        scrollResp = es.getClient().prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(600000)).execute().actionGet();</span>
+<span class="nc bnc" id="L402" title="All 2 branches missed.">        if (scrollResp.getHits().getHits().length == 0) {</span>
+<span class="nc" id="L403">          break;</span>
+        }
+      }
+    }
+
+<span class="nc" id="L408">    JavaRDD&lt;String&gt; sessionRDD = spark.sc.parallelize(result);</span>
+
+<span class="nc" id="L410">    return sessionRDD.mapToPair(new PairFunction&lt;String, String, List&lt;String&gt;&gt;() {</span>
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;String, List&lt;String&gt;&gt; call(String sessionitem) throws Exception {
+<span class="nc" id="L415">        String[] splits = sessionitem.split(&quot;:&quot;);</span>
+<span class="nc" id="L416">        String sessionId = splits[0];</span>
+<span class="nc" id="L417">        List&lt;String&gt; itemList = new ArrayList&lt;&gt;();</span>
+
+<span class="nc" id="L419">        String items = splits[1];</span>
+<span class="nc" id="L420">        String[] itemArr = items.split(&quot;,&quot;);</span>
+<span class="nc" id="L421">        int size = itemArr.length;</span>
+<span class="nc bnc" id="L422" title="All 2 branches missed.">        for (int i = 0; i &lt; size; i++) {</span>
+<span class="nc" id="L423">          String item = itemArr[i];</span>
+<span class="nc bnc" id="L424" title="All 2 branches missed.">          if (!itemList.contains(item))</span>
+<span class="nc" id="L425">            itemList.add(itemArr[i]);</span>
+        }
+
+<span class="nc" id="L428">        return new Tuple2&lt;&gt;(sessionId, itemList);</span>
+      }
+    });
+  }
+
+  /**
+   * extractClickStreamFromES:Extract click streams from logs stored in
+   * Elasticsearch
+   *
+   * @param props
+   *          the Mudrod configuration
+   * @param es
+   *          the Elasticsearch drive
+   * @param spark
+   *          the spark driver
+   * @return clickstream list in JavaRDD format {@link ClickStream}
+   */
+  public JavaRDD&lt;RankingTrainData&gt; extractRankingTrainData(Properties props, ESDriver es, SparkDriver spark) {
+
+<span class="nc" id="L447">    List&lt;RankingTrainData&gt; queryList = this.extractRankingTrainData(props, es);</span>
+<span class="nc" id="L448">    return spark.sc.parallelize(queryList);</span>
+
+  }
+
+  /**
+   * getClickStreamList:Extract click streams from logs stored in Elasticsearch.
+   *
+   * @param props
+   *          the Mudrod configuration
+   * @param es
+   *          the Elasticsearch driver
+   * @return clickstream list {@link ClickStream}
+   */
+  protected List&lt;RankingTrainData&gt; extractRankingTrainData(Properties props, ESDriver es) {
+<span class="nc" id="L462">    List&lt;String&gt; logIndexList = es.getIndexListWithPrefix(props.getProperty(MudrodConstants.LOG_INDEX));</span>
+
+<span class="nc" id="L464">    LOG.info(logIndexList.toString());</span>
+
+<span class="nc" id="L466">    List&lt;RankingTrainData&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L467" title="All 2 branches missed.">    for (int n = 0; n &lt; logIndexList.size(); n++) {</span>
+<span class="nc" id="L468">      String logIndex = logIndexList.get(n);</span>
+      List&lt;String&gt; sessionIdList;
+      try {
+<span class="nc" id="L471">        sessionIdList = this.getSessions(props, es, logIndex);</span>
+<span class="nc" id="L472">        Session session = new Session(props, es);</span>
+<span class="nc" id="L473">        int sessionNum = sessionIdList.size();</span>
+<span class="nc bnc" id="L474" title="All 2 branches missed.">        for (int i = 0; i &lt; sessionNum; i++) {</span>
+<span class="nc" id="L475">          String[] sArr = sessionIdList.get(i).split(&quot;,&quot;);</span>
+<span class="nc" id="L476">          List&lt;RankingTrainData&gt; datas = session.getRankingTrainData(sArr[1], sArr[2], sArr[0]);</span>
+<span class="nc" id="L477">          result.addAll(datas);</span>
+        }
+<span class="nc" id="L479">      } catch (Exception e) {</span>
+<span class="nc" id="L480">        LOG.error(&quot;Error which extracting ranking train data: {}&quot;, e);</span>
+<span class="nc" id="L481">      }</span>
+    }
+
+<span class="nc" id="L484">    return result;</span>
+  }
+
+  protected JavaRDD&lt;RankingTrainData&gt; extractRankingTrainDataInParallel(Properties props, SparkDriver spark, ESDriver es) {
+
+<span class="nc" id="L489">    List&lt;String&gt; logIndexList = es.getIndexListWithPrefix(props.getProperty(MudrodConstants.LOG_INDEX));</span>
+
+<span class="nc" id="L491">    LOG.info(logIndexList.toString());</span>
+
+<span class="nc" id="L493">    List&lt;String&gt; sessionIdList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L494" title="All 2 branches missed.">    for (int n = 0; n &lt; logIndexList.size(); n++) {</span>
+<span class="nc" id="L495">      String logIndex = logIndexList.get(n);</span>
+<span class="nc" id="L496">      List&lt;String&gt; tmpsessionList = this.getSessions(props, es, logIndex);</span>
+<span class="nc" id="L497">      sessionIdList.addAll(tmpsessionList);</span>
+    }
+
+<span class="nc" id="L500">    JavaRDD&lt;String&gt; sessionRDD = spark.sc.parallelize(sessionIdList, 16);</span>
+
+<span class="nc" id="L502">    JavaRDD&lt;RankingTrainData&gt; clickStreamRDD = sessionRDD.mapPartitions(new FlatMapFunction&lt;Iterator&lt;String&gt;, RankingTrainData&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Iterator&lt;RankingTrainData&gt; call(Iterator&lt;String&gt; arg0) throws Exception {
+<span class="nc" id="L510">        ESDriver tmpES = new ESDriver(props);</span>
+<span class="nc" id="L511">        tmpES.createBulkProcessor();</span>
+
+<span class="nc" id="L513">        Session session = new Session(props, tmpES);</span>
+<span class="nc" id="L514">        List&lt;RankingTrainData&gt; clickstreams = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L515" title="All 2 branches missed.">        while (arg0.hasNext()) {</span>
+<span class="nc" id="L516">          String s = arg0.next();</span>
+<span class="nc" id="L517">          String[] sArr = s.split(&quot;,&quot;);</span>
+<span class="nc" id="L518">          List&lt;RankingTrainData&gt; clicks = session.getRankingTrainData(sArr[1], sArr[2], sArr[0]);</span>
+<span class="nc" id="L519">          clickstreams.addAll(clicks);</span>
+<span class="nc" id="L520">        }</span>
+<span class="nc" id="L521">        tmpES.destroyBulkProcessor();</span>
+<span class="nc" id="L522">        tmpES.close();</span>
+<span class="nc" id="L523">        return clickstreams.iterator();</span>
+      }
+    });
+
+<span class="nc" id="L527">    LOG.info(&quot;Clickstream number: {}&quot;, clickStreamRDD.count());</span>
+
+<span class="nc" id="L529">    return clickStreamRDD;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

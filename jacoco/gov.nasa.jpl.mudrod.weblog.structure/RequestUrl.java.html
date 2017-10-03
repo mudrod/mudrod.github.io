@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RequestUrl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.structure</a> &gt; <span class="el_source">RequestUrl.java</span></div><h1>RequestUrl.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.weblog.structure;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * ClassName: RequestUrl Function: request url relate operations
+ */
+public class RequestUrl {
+
+<span class="nc" id="L31">  private static final Logger LOG = LoggerFactory.getLogger(RequestUrl.class);</span>
+
+  /**
+   * Default Constructor
+   */
+<span class="nc" id="L36">  public RequestUrl() {</span>
+    /* Default Constructor */
+<span class="nc" id="L38">  }</span>
+
+  /**
+   * UrlPage: Get url page from url link
+   *
+   * @param strURL request url
+   * @return page name
+   */
+  public static String urlPage(String strURL) {
+<span class="nc" id="L47">    String strPage = null;</span>
+<span class="nc" id="L48">    String[] arrSplit = null;</span>
+
+<span class="nc" id="L50">    String newURL = strURL.trim().toLowerCase();</span>
+
+<span class="nc" id="L52">    arrSplit = newURL.split(&quot;[?]&quot;);</span>
+<span class="nc bnc" id="L53" title="All 6 branches missed.">    if (newURL.length() &gt; 0 &amp;&amp; arrSplit.length &gt; 1 &amp;&amp; arrSplit[0] != null) {</span>
+<span class="nc" id="L54">      strPage = arrSplit[0];</span>
+    }
+
+<span class="nc" id="L57">    return strPage;</span>
+  }
+
+  /**
+   * TruncateUrlPage: Get url params from url link
+   *
+   * @param strURL
+   * @return url params
+   */
+  private static String truncateUrlPage(String strURL) {
+<span class="nc" id="L67">    String strAllParam = null;</span>
+<span class="nc" id="L68">    String[] arrSplit = null;</span>
+
+<span class="nc" id="L70">    strURL = strURL.trim().toLowerCase(); // keep this in mind</span>
+
+<span class="nc" id="L72">    arrSplit = strURL.split(&quot;[?]&quot;);</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">    if (strURL.length() &gt; 1) {</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">      if (arrSplit.length &gt; 1) {</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">        if (arrSplit[1] != null) {</span>
+<span class="nc" id="L76">          strAllParam = arrSplit[1];</span>
+        }
+      }
+    }
+
+<span class="nc" id="L81">    return strAllParam;</span>
+  }
+
+  /**
+   * URLRequest: Get url params from url link in a map format
+   *
+   * @param URL request url
+   * @return url params key value map
+   */
+  public static Map&lt;String, String&gt; uRLRequest(String URL) {
+<span class="nc" id="L91">    Map&lt;String, String&gt; mapRequest = new HashMap&lt;String, String&gt;();</span>
+
+<span class="nc" id="L93">    String[] arrSplit = null;</span>
+
+<span class="nc" id="L95">    String strUrlParam = truncateUrlPage(URL);</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">    if (strUrlParam == null) {</span>
+<span class="nc" id="L97">      return mapRequest;</span>
+    }
+
+<span class="nc" id="L100">    arrSplit = strUrlParam.split(&quot;[&amp;]&quot;);</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">    for (String strSplit : arrSplit) {</span>
+<span class="nc" id="L102">      String[] arrSplitEqual = null;</span>
+<span class="nc" id="L103">      arrSplitEqual = strSplit.split(&quot;[=]&quot;);</span>
+
+<span class="nc bnc" id="L105" title="All 2 branches missed.">      if (arrSplitEqual.length &gt; 1) {</span>
+
+<span class="nc" id="L107">        mapRequest.put(arrSplitEqual[0], arrSplitEqual[1]);</span>
+
+      } else {
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        if (arrSplitEqual[0] != &quot;&quot;) {</span>
+
+<span class="nc" id="L112">          mapRequest.put(arrSplitEqual[0], &quot;&quot;);</span>
+        }
+      }
+    }
+<span class="nc" id="L116">    return mapRequest;</span>
+  }
+
+  /**
+   * GetSearchInfo: Get search information from url link
+   *
+   * @param URL request url
+   * @return search params
+   * @throws UnsupportedEncodingException UnsupportedEncodingException
+   */
+  public String getSearchInfo(String URL) throws UnsupportedEncodingException {
+<span class="nc" id="L127">    List&lt;String&gt; info = new ArrayList&lt;String&gt;();</span>
+<span class="nc" id="L128">    String keyword = &quot;&quot;;</span>
+<span class="nc" id="L129">    Map&lt;String, String&gt; mapRequest = RequestUrl.uRLRequest(URL);</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">    if (mapRequest.get(&quot;search&quot;) != null) {</span>
+      try {
+<span class="nc" id="L132">        keyword = mapRequest.get(&quot;search&quot;);</span>
+
+<span class="nc" id="L134">        keyword = URLDecoder.decode(keyword.replaceAll(&quot;%(?![0-9a-fA-F]{2})&quot;, &quot;%25&quot;), &quot;UTF-8&quot;);</span>
+<span class="nc bnc" id="L135" title="All 6 branches missed.">        if (keyword.contains(&quot;%2b&quot;) || keyword.contains(&quot;%20&quot;) || keyword.contains(&quot;%25&quot;)) {</span>
+<span class="nc" id="L136">          keyword = keyword.replace(&quot;%2b&quot;, &quot; &quot;);</span>
+<span class="nc" id="L137">          keyword = keyword.replace(&quot;%20&quot;, &quot; &quot;);</span>
+<span class="nc" id="L138">          keyword = keyword.replace(&quot;%25&quot;, &quot; &quot;);</span>
+        }
+
+<span class="nc" id="L141">        keyword = keyword.replaceAll(&quot;[-+^:,*_\&quot;]&quot;, &quot; &quot;).replace(&quot;\\&quot;, &quot; &quot;).replaceAll(&quot;\\s+&quot;, &quot; &quot;).trim();</span>
+
+<span class="nc" id="L143">      } catch (UnsupportedEncodingException e) {</span>
+<span class="nc" id="L144">        LOG.error(mapRequest.get(&quot;search&quot;));</span>
+<span class="nc" id="L145">        e.printStackTrace();</span>
+<span class="nc" id="L146">      }</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">      if (!&quot;&quot;.equals(keyword)) {</span>
+<span class="nc" id="L148">        info.add(keyword);</span>
+      }
+
+    }
+
+<span class="nc bnc" id="L153" title="All 4 branches missed.">    if (mapRequest.get(&quot;ids&quot;) != null &amp;&amp; mapRequest.get(&quot;values&quot;) != null) {</span>
+<span class="nc" id="L154">      String id_raw = URLDecoder.decode(mapRequest.get(&quot;ids&quot;), &quot;UTF-8&quot;);</span>
+<span class="nc" id="L155">      String value_raw = URLDecoder.decode(mapRequest.get(&quot;values&quot;), &quot;UTF-8&quot;);</span>
+<span class="nc" id="L156">      String[] ids = id_raw.split(&quot;:&quot;);</span>
+<span class="nc" id="L157">      String[] values = value_raw.split(&quot;:&quot;);</span>
+
+<span class="nc" id="L159">      int a = ids.length;</span>
+<span class="nc" id="L160">      int b = values.length;</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">      int l = a &lt; b ? a : b;</span>
+
+<span class="nc bnc" id="L163" title="All 2 branches missed.">      for (int i = 0; i &lt; l; i++) {</span>
+<span class="nc bnc" id="L164" title="All 12 branches missed.">        if (ids[i].equals(&quot;collections&quot;) || ids[i].equals(&quot;measurement&quot;) || ids[i].equals(&quot;sensor&quot;) || ids[i].equals(&quot;platform&quot;) || ids[i].equals(&quot;variable&quot;) || ids[i].equals(&quot;spatialcoverage&quot;)) {</span>
+          try {
+<span class="nc" id="L166">            values[i] = values[i].replaceAll(&quot;%(?![0-9a-fA-F]{2})&quot;, &quot;%25&quot;);</span>
+<span class="nc bnc" id="L167" title="All 4 branches missed.">            if (!URLDecoder.decode(values[i], &quot;UTF-8&quot;).equals(keyword) &amp;&amp; !URLDecoder.decode(values[i], &quot;UTF-8&quot;).equals(&quot;&quot;)) {</span>
+<span class="nc" id="L168">              String item = URLDecoder.decode(values[i], &quot;UTF-8&quot;).trim();</span>
+<span class="nc bnc" id="L169" title="All 6 branches missed.">              if (item.contains(&quot;%2b&quot;) || item.contains(&quot;%20&quot;) || item.contains(&quot;%25&quot;)) {</span>
+<span class="nc" id="L170">                item = item.replace(&quot;%2b&quot;, &quot; &quot;);</span>
+<span class="nc" id="L171">                item = item.replace(&quot;%20&quot;, &quot; &quot;);</span>
+<span class="nc" id="L172">                item = item.replace(&quot;%25&quot;, &quot; &quot;);</span>
+              }
+<span class="nc" id="L174">              item = item.replaceAll(&quot;[-+^:,*_\&quot;]&quot;, &quot; &quot;).replace(&quot;\\&quot;, &quot; &quot;).replaceAll(&quot;\\s+&quot;, &quot; &quot;).trim();</span>
+<span class="nc" id="L175">              info.add(item);</span>
+            }
+<span class="nc" id="L177">          } catch (Exception e) {</span>
+<span class="nc" id="L178">            LOG.error(values[i]);</span>
+<span class="nc" id="L179">            e.printStackTrace();</span>
+<span class="nc" id="L180">          }</span>
+        }
+
+      }
+    }
+
+<span class="nc" id="L186">    return String.join(&quot;,&quot;, info);</span>
+  }
+
+  /**
+   * GetSearchWord: Get search words from url link
+   *
+   * @param url request url
+   * @return query
+   */
+  public static String getSearchWord(String url) {
+<span class="nc" id="L196">    String keyword = &quot;&quot;;</span>
+
+<span class="nc" id="L198">    Map&lt;String, String&gt; mapRequest = RequestUrl.uRLRequest(url);</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">    if (mapRequest.get(&quot;search&quot;) != null) {</span>
+      try {
+<span class="nc" id="L201">        keyword = mapRequest.get(&quot;search&quot;);</span>
+
+<span class="nc" id="L203">        keyword = URLDecoder.decode(keyword.replaceAll(&quot;%(?![0-9a-fA-F]{2})&quot;, &quot;%25&quot;), &quot;UTF-8&quot;);</span>
+<span class="nc bnc" id="L204" title="All 6 branches missed.">        if (keyword.contains(&quot;%2b&quot;) || keyword.contains(&quot;%20&quot;) || keyword.contains(&quot;%25&quot;)) {</span>
+<span class="nc" id="L205">          keyword = keyword.replace(&quot;%2b&quot;, &quot; &quot;);</span>
+<span class="nc" id="L206">          keyword = keyword.replace(&quot;%20&quot;, &quot; &quot;);</span>
+<span class="nc" id="L207">          keyword = keyword.replace(&quot;%25&quot;, &quot; &quot;);</span>
+        }
+<span class="nc" id="L209">        keyword = keyword.replaceAll(&quot;[-+^:,*_\&quot;]&quot;, &quot; &quot;).replace(&quot;\\&quot;, &quot; &quot;).replaceAll(&quot;\\s+&quot;, &quot; &quot;).trim();</span>
+<span class="nc" id="L210">      } catch (UnsupportedEncodingException e) {</span>
+<span class="nc" id="L211">        LOG.error(mapRequest.get(&quot;search&quot;));</span>
+<span class="nc" id="L212">        e.printStackTrace();</span>
+<span class="nc" id="L213">      }</span>
+    }
+
+<span class="nc" id="L216">    return keyword;</span>
+  }
+
+  /**
+   * GetFilterInfo: Get filter params from url link
+   *
+   * @param url request url
+   * @return filter facet key pair map
+   * @throws UnsupportedEncodingException UnsupportedEncodingException
+   */
+  public static Map&lt;String, String&gt; getFilterInfo(String url) throws UnsupportedEncodingException {
+<span class="nc" id="L227">    List&lt;String&gt; info = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L228">    Map&lt;String, String&gt; filterValues = new HashMap&lt;&gt;();</span>
+
+<span class="nc" id="L230">    String keyword = &quot;&quot;;</span>
+<span class="nc" id="L231">    Map&lt;String, String&gt; mapRequest = RequestUrl.uRLRequest(url);</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">    if (mapRequest.get(&quot;search&quot;) != null) {</span>
+      try {
+<span class="nc" id="L234">        keyword = mapRequest.get(&quot;search&quot;);</span>
+
+<span class="nc" id="L236">        keyword = URLDecoder.decode(keyword.replaceAll(&quot;%(?![0-9a-fA-F]{2})&quot;, &quot;%25&quot;), &quot;UTF-8&quot;);</span>
+<span class="nc bnc" id="L237" title="All 6 branches missed.">        if (keyword.contains(&quot;%2b&quot;) || keyword.contains(&quot;%20&quot;) || keyword.contains(&quot;%25&quot;)) {</span>
+<span class="nc" id="L238">          keyword = keyword.replace(&quot;%2b&quot;, &quot; &quot;);</span>
+<span class="nc" id="L239">          keyword = keyword.replace(&quot;%20&quot;, &quot; &quot;);</span>
+<span class="nc" id="L240">          keyword = keyword.replace(&quot;%25&quot;, &quot; &quot;);</span>
+        }
+<span class="nc" id="L242">        keyword = keyword.replaceAll(&quot;[-+^:,*_\&quot;]&quot;, &quot; &quot;).replace(&quot;\\&quot;, &quot; &quot;).replaceAll(&quot;\\s+&quot;, &quot; &quot;).trim();</span>
+
+<span class="nc" id="L244">      } catch (UnsupportedEncodingException e) {</span>
+<span class="nc" id="L245">        LOG.error(mapRequest.get(&quot;search&quot;));</span>
+<span class="nc" id="L246">        e.printStackTrace();</span>
+<span class="nc" id="L247">      }</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">      if (!&quot;&quot;.equals(keyword)) {</span>
+<span class="nc" id="L249">        info.add(keyword);</span>
+      }
+
+    }
+
+<span class="nc bnc" id="L254" title="All 4 branches missed.">    if (mapRequest.get(&quot;ids&quot;) != null &amp;&amp; mapRequest.get(&quot;values&quot;) != null) {</span>
+<span class="nc" id="L255">      String idRaw = URLDecoder.decode(mapRequest.get(&quot;ids&quot;), &quot;UTF-8&quot;);</span>
+<span class="nc" id="L256">      String valueRaw = URLDecoder.decode(mapRequest.get(&quot;values&quot;), &quot;UTF-8&quot;);</span>
+<span class="nc" id="L257">      String[] ids = idRaw.split(&quot;:&quot;);</span>
+<span class="nc" id="L258">      String[] values = valueRaw.split(&quot;:&quot;);</span>
+
+<span class="nc" id="L260">      int a = ids.length;</span>
+<span class="nc" id="L261">      int b = values.length;</span>
+<span class="nc bnc" id="L262" title="All 2 branches missed.">      int l = a &lt; b ? a : b;</span>
+
+<span class="nc bnc" id="L264" title="All 2 branches missed.">      for (int i = 0; i &lt; l; i++) {</span>
+        try {
+<span class="nc" id="L266">          values[i] = values[i].replaceAll(&quot;%(?![0-9a-fA-F]{2})&quot;, &quot;%25&quot;);</span>
+<span class="nc bnc" id="L267" title="All 4 branches missed.">          if (!URLDecoder.decode(values[i], &quot;UTF-8&quot;).equals(keyword) &amp;&amp; !URLDecoder.decode(values[i], &quot;UTF-8&quot;).equals(&quot;&quot;)) {</span>
+<span class="nc" id="L268">            String item = URLDecoder.decode(values[i], &quot;UTF-8&quot;).trim();</span>
+<span class="nc bnc" id="L269" title="All 6 branches missed.">            if (item.contains(&quot;%2b&quot;) || item.contains(&quot;%20&quot;) || item.contains(&quot;%25&quot;)) {</span>
+<span class="nc" id="L270">              item = item.replace(&quot;%2b&quot;, &quot; &quot;);</span>
+<span class="nc" id="L271">              item = item.replace(&quot;%20&quot;, &quot; &quot;);</span>
+<span class="nc" id="L272">              item = item.replace(&quot;%25&quot;, &quot; &quot;);</span>
+            }
+<span class="nc" id="L274">            item = item.replaceAll(&quot;[-+^:,*_\&quot;]&quot;, &quot; &quot;).replace(&quot;\\&quot;, &quot; &quot;).replaceAll(&quot;\\s+&quot;, &quot; &quot;).trim();</span>
+<span class="nc" id="L275">            filterValues.put(ids[i], item);</span>
+          }
+<span class="nc" id="L277">        } catch (Exception e) {</span>
+<span class="nc" id="L278">          LOG.error(values[i]);</span>
+<span class="nc" id="L279">          e.printStackTrace();</span>
+<span class="nc" id="L280">        }</span>
+      }
+    }
+
+<span class="nc bnc" id="L284" title="All 2 branches missed.">    if (mapRequest.get(&quot;temporalsearch&quot;) != null) {</span>
+<span class="nc" id="L285">      String temporalsearch = mapRequest.get(&quot;temporalsearch&quot;);</span>
+<span class="nc" id="L286">      temporalsearch = URLDecoder.decode(temporalsearch.replaceAll(&quot;%(?![0-9a-fA-F]{2})&quot;, &quot;%25&quot;), &quot;UTF-8&quot;);</span>
+
+<span class="nc" id="L288">      filterValues.put(&quot;temporalsearch&quot;, temporalsearch);</span>
+    }
+
+<span class="nc" id="L291">    return filterValues;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

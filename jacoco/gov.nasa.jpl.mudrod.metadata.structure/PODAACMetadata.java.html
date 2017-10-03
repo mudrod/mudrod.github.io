@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PODAACMetadata.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.metadata.structure</a> &gt; <span class="el_source">PODAACMetadata.java</span></div><h1>PODAACMetadata.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.metadata.structure;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * ClassName: PODAACMetadata Function: PODAACMetadata setter and getter methods
+ */
+public class PODAACMetadata implements Serializable {
+
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+  // shortname: data set short name
+  private String shortname;
+  // abstractStr: data set abstract
+  private String abstractStr;
+  // isoTopic: data set topic
+  private String isoTopic;
+  // sensor: sensor
+  private String sensor;
+  // source: data source
+  private String source;
+  // project: data project
+  private String project;
+  // hasAbstarct: whether data set has abstract
+  boolean hasAbstarct;
+
+  // longnameList: data set long name list
+  private List&lt;String&gt; longnameList;
+  // keywordList:data set key word list
+  private List&lt;String&gt; keywordList;
+  // termList: data set term list
+  private List&lt;String&gt; termList;
+  // topicList: data set topic list
+  private List&lt;String&gt; topicList;
+  // variableList: data set variable list
+  private List&lt;String&gt; variableList;
+  // abstractList: data set abstract term list
+  private List&lt;String&gt; abstractList;
+  // isotopicList: data set iso topic list
+  private List&lt;String&gt; isotopicList;
+  // sensorList: data set sensor list
+  private List&lt;String&gt; sensorList;
+  // sourceList: data set source list
+  private List&lt;String&gt; sourceList;
+  // projectList: data set project list
+  private List&lt;String&gt; projectList;
+  // regionList: data set region list
+  private List&lt;String&gt; regionList;
+
+<span class="nc" id="L67">  public PODAACMetadata() {</span>
+    // Default constructor
+<span class="nc" id="L69">  }</span>
+
+  /**
+   * Creates a new instance of PODAACMetadata.
+   *
+   * @param shortname data set short name
+   * @param longname  data set long name
+   * @param topics    data set topics
+   * @param terms     data set terms
+   * @param variables data set variables
+   * @param keywords  data set keywords
+   * @param region    list of regions
+   */
+<span class="nc" id="L82">  public PODAACMetadata(String shortname, List&lt;String&gt; longname, List&lt;String&gt; topics, List&lt;String&gt; terms, List&lt;String&gt; variables, List&lt;String&gt; keywords, List&lt;String&gt; region) {</span>
+<span class="nc" id="L83">    this.shortname = shortname;</span>
+<span class="nc" id="L84">    this.longnameList = longname;</span>
+<span class="nc" id="L85">    this.keywordList = keywords;</span>
+<span class="nc" id="L86">    this.termList = terms;</span>
+<span class="nc" id="L87">    this.topicList = topics;</span>
+<span class="nc" id="L88">    this.variableList = variables;</span>
+<span class="nc" id="L89">    this.regionList = region;</span>
+<span class="nc" id="L90">  }</span>
+
+  /**
+   * setTerms: set term of data set
+   *
+   * @param termstr data set terms
+   */
+  public void setTerms(String termstr) {
+<span class="nc" id="L98">    this.splitString(termstr, this.termList);</span>
+<span class="nc" id="L99">  }</span>
+
+  /**
+   * setKeywords: set key word of data set
+   *
+   * @param keywords data set keywords
+   */
+  public void setKeywords(String keywords) {
+<span class="nc" id="L107">    this.splitString(keywords, this.keywordList);</span>
+<span class="nc" id="L108">  }</span>
+
+  /**
+   * setTopicList: set topic of data set
+   *
+   * @param topicStr data set topics
+   */
+  public void setTopicList(String topicStr) {
+<span class="nc" id="L116">    this.splitString(topicStr, this.topicList);</span>
+<span class="nc" id="L117">  }</span>
+
+  /**
+   * setVaraliableList: set varilable of data set
+   *
+   * @param varilableStr data set variables
+   */
+  public void setVaraliableList(String varilableStr) {
+<span class="nc" id="L125">    this.splitString(varilableStr, this.variableList);</span>
+<span class="nc" id="L126">  }</span>
+
+  /**
+   * setProjectList:set project of data set
+   *
+   * @param project data set projects
+   */
+  public void setProjectList(String project) {
+<span class="nc" id="L134">    this.splitString(project, this.projectList);</span>
+<span class="nc" id="L135">  }</span>
+
+  /**
+   * setSourceList: set source of data set
+   *
+   * @param source data set sources
+   */
+  public void setSourceList(String source) {
+<span class="nc" id="L143">    this.splitString(source, this.sourceList);</span>
+<span class="nc" id="L144">  }</span>
+
+  /**
+   * setSensorList: set sensor of data set
+   *
+   * @param sensor data set sensors
+   */
+  public void setSensorList(String sensor) {
+<span class="nc" id="L152">    this.splitString(sensor, this.sensorList);</span>
+<span class="nc" id="L153">  }</span>
+
+  /**
+   * setISOTopicList:set iso topic of data set
+   *
+   * @param isoTopic data set iso topics
+   */
+  public void setISOTopicList(String isoTopic) {
+<span class="nc" id="L161">    this.splitString(isoTopic, this.isotopicList);</span>
+<span class="nc" id="L162">  }</span>
+
+  /**
+   * getKeywordList: get key word of data set
+   *
+   * @return data set keyword list
+   */
+  public List&lt;String&gt; getKeywordList() {
+<span class="nc" id="L170">    return this.keywordList;</span>
+  }
+
+  /**
+   * getTermList:get term list of data set
+   *
+   * @return data set term list
+   */
+  public List&lt;String&gt; getTermList() {
+<span class="nc" id="L179">    return this.termList;</span>
+  }
+
+  /**
+   * getShortName:get short name of data set
+   *
+   * @return data set short name
+   */
+  public String getShortName() {
+<span class="nc" id="L188">    return this.shortname;</span>
+  }
+
+  /**
+   * getKeyword:get key word of data set
+   *
+   * @return data set keyword string
+   */
+  public String getKeyword() {
+<span class="nc" id="L197">    return String.join(&quot;,&quot;, this.keywordList);</span>
+  }
+
+  /**
+   * getTerm:get term of data set
+   *
+   * @return data set term string
+   */
+  public String getTerm() {
+<span class="nc" id="L206">    return String.join(&quot;,&quot;, this.termList);</span>
+  }
+
+  /**
+   * getTopic:get topic of data set
+   *
+   * @return data set topic string
+   */
+  public String getTopic() {
+<span class="nc" id="L215">    return String.join(&quot;,&quot;, this.topicList);</span>
+  }
+
+  /**
+   * getVariable:get variable of data set
+   *
+   * @return data set variable string
+   */
+  public String getVariable() {
+<span class="nc" id="L224">    return String.join(&quot;,&quot;, this.variableList);</span>
+  }
+
+  /**
+   * getAbstract:get abstract of data set
+   *
+   * @return data set abstract
+   */
+  public String getAbstract() {
+<span class="nc" id="L233">    return this.abstractStr;</span>
+  }
+
+  /**
+   * getProject:get project of data set
+   *
+   * @return data set project string
+   */
+  public String getProject() {
+<span class="nc" id="L242">    return this.project;</span>
+  }
+
+  /**
+   * getSource:get source of data set
+   *
+   * @return data set source string
+   */
+  public String getSource() {
+<span class="nc" id="L251">    return this.source;</span>
+  }
+
+  /**
+   * getSensor:get sensor of data set
+   *
+   * @return data set sensor string
+   */
+  public String getSensor() {
+<span class="nc" id="L260">    return this.sensor;</span>
+  }
+
+  /**
+   * getISOTopic:get iso topic of data set
+   *
+   * @return data set ISO topic string
+   */
+  public String getISOTopic() {
+<span class="nc" id="L269">    return this.isoTopic;</span>
+  }
+
+  /**
+   * getAllTermList: get all term list of data set
+   *
+   * @return data set term list
+   */
+  public List&lt;String&gt; getAllTermList() {
+<span class="nc" id="L278">    List&lt;String&gt; allterms = new ArrayList&lt;&gt;();</span>
+
+<span class="nc bnc" id="L280" title="All 4 branches missed.">    if (this.termList != null &amp;&amp; !this.termList.isEmpty()) {</span>
+<span class="nc" id="L281">      allterms.addAll(this.termList);</span>
+    }
+
+<span class="nc bnc" id="L284" title="All 4 branches missed.">    if (this.keywordList != null &amp;&amp; !this.keywordList.isEmpty()) {</span>
+<span class="nc" id="L285">      allterms.addAll(this.keywordList);</span>
+    }
+
+<span class="nc bnc" id="L288" title="All 4 branches missed.">    if (this.topicList != null &amp;&amp; !this.topicList.isEmpty()) {</span>
+<span class="nc" id="L289">      allterms.addAll(this.topicList);</span>
+    }
+
+<span class="nc bnc" id="L292" title="All 4 branches missed.">    if (this.variableList != null &amp;&amp; !this.variableList.isEmpty()) {</span>
+<span class="nc" id="L293">      allterms.addAll(this.variableList);</span>
+    }
+
+<span class="nc bnc" id="L296" title="All 4 branches missed.">    if (this.regionList != null &amp;&amp; !this.regionList.isEmpty()) {</span>
+<span class="nc" id="L297">      allterms.addAll(this.regionList);</span>
+    }
+<span class="nc" id="L299">    return allterms;</span>
+  }
+
+  /**
+   * splitString: split value of fields of data set
+   *
+   * @param oristr original string
+   * @param list   result after splitting
+   */
+  private void splitString(String oristr, List&lt;String&gt; list) {
+<span class="nc bnc" id="L309" title="All 2 branches missed.">    if (oristr == null) {</span>
+<span class="nc" id="L310">      return;</span>
+    }
+
+<span class="nc bnc" id="L313" title="All 2 branches missed.">    if (oristr.startsWith(&quot;\&quot;&quot;)) {</span>
+<span class="nc" id="L314">      oristr = oristr.substring(1);</span>
+    }
+<span class="nc bnc" id="L316" title="All 2 branches missed.">    if (oristr.endsWith(&quot;\&quot;&quot;)) {</span>
+<span class="nc" id="L317">      oristr = oristr.substring(0, oristr.length() - 1);</span>
+    }
+
+<span class="nc" id="L320">    String strs[] = oristr.trim().split(&quot;,&quot;);</span>
+<span class="nc bnc" id="L321" title="All 2 branches missed.">    if (strs != null) {</span>
+<span class="nc bnc" id="L322" title="All 2 branches missed.">      for (int i = 0; i &lt; strs.length; i++) {</span>
+<span class="nc" id="L323">        String str = strs[i].trim();</span>
+<span class="nc bnc" id="L324" title="All 4 branches missed.">        if (str.startsWith(&quot;,&quot;) || str.startsWith(&quot;\&quot;&quot;)) {</span>
+<span class="nc" id="L325">          str = str.substring(1);</span>
+        }
+<span class="nc bnc" id="L327" title="All 4 branches missed.">        if (str.endsWith(&quot;,&quot;) || str.endsWith(&quot;\&quot;&quot;)) {</span>
+<span class="nc" id="L328">          str = str.substring(0, str.length() - 1);</span>
+        }
+<span class="nc bnc" id="L330" title="All 2 branches missed.">        if (str == &quot;&quot;) {</span>
+<span class="nc" id="L331">          continue;</span>
+        }
+<span class="nc" id="L333">        list.add(str);</span>
+      }
+    }
+<span class="nc" id="L336">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

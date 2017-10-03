@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ApacheAccessLog.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.structure</a> &gt; <span class="el_source">ApacheAccessLog.java</span></div><h1>ApacheAccessLog.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.weblog.structure;
+
+import com.google.gson.Gson;
+import gov.nasa.jpl.mudrod.weblog.pre.CrawlerDetection;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * This class represents an Apache access log line. See
+ * http://httpd.apache.org/docs/2.2/logs.html for more details.
+ */
+public class ApacheAccessLog extends WebLog implements Serializable {
+
+  // double Bytes;
+  String Response;
+  String Referer;
+  String Browser;
+
+  @Override
+  public double getBytes() {
+<span class="nc" id="L40">    return this.Bytes;</span>
+  }
+
+  public String getBrowser() {
+<span class="nc" id="L44">    return this.Browser;</span>
+  }
+
+  public String getResponse() {
+<span class="nc" id="L48">    return this.Response;</span>
+  }
+
+  public String getReferer() {
+<span class="nc" id="L52">    return this.Referer;</span>
+  }
+
+<span class="nc" id="L55">  public ApacheAccessLog() {</span>
+
+<span class="nc" id="L57">  }</span>
+
+  public static String parseFromLogLine(String log) throws IOException, ParseException {
+
+<span class="nc" id="L61">    String logEntryPattern = &quot;^([\\d.]+) (\\S+) (\\S+) \\[([\\w:/]+\\s[+\\-]\\d{4})\\] \&quot;(.+?)\&quot; (\\d{3}) (\\d+|-) \&quot;((?:[^\&quot;]|\&quot;)+)\&quot; \&quot;([^\&quot;]+)\&quot;&quot;;</span>
+<span class="nc" id="L62">    final int NUM_FIELDS = 9;</span>
+<span class="nc" id="L63">    Pattern p = Pattern.compile(logEntryPattern);</span>
+    Matcher matcher;
+
+<span class="nc" id="L66">    String lineJson = &quot;{}&quot;;</span>
+<span class="nc" id="L67">    matcher = p.matcher(log);</span>
+<span class="nc bnc" id="L68" title="All 4 branches missed.">    if (!matcher.matches() || NUM_FIELDS != matcher.groupCount()) {</span>
+<span class="nc" id="L69">      return lineJson;</span>
+    }
+
+<span class="nc" id="L72">    String time = matcher.group(4);</span>
+<span class="nc" id="L73">    time = SwithtoNum(time);</span>
+<span class="nc" id="L74">    SimpleDateFormat formatter = new SimpleDateFormat(&quot;dd/MM/yyyy:HH:mm:ss&quot;);</span>
+<span class="nc" id="L75">    Date date = formatter.parse(time);</span>
+
+<span class="nc" id="L77">    String bytes = matcher.group(7);</span>
+
+<span class="nc bnc" id="L79" title="All 2 branches missed.">    if (bytes.equals(&quot;-&quot;)) {</span>
+<span class="nc" id="L80">      bytes = &quot;0&quot;;</span>
+    }
+
+<span class="nc" id="L83">    String request = matcher.group(5).toLowerCase();</span>
+<span class="nc" id="L84">    String agent = matcher.group(9);</span>
+<span class="nc" id="L85">    CrawlerDetection crawlerDe = new CrawlerDetection();</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">    if (crawlerDe.checkKnownCrawler(agent)) {</span>
+<span class="nc" id="L87">      return lineJson;</span>
+    } else {
+
+<span class="nc" id="L90">      boolean tag = false;</span>
+<span class="nc" id="L91">      String[] mimeTypes = { &quot;.js&quot;, &quot;.css&quot;, &quot;.jpg&quot;, &quot;.png&quot;, &quot;.ico&quot;, &quot;image_captcha&quot;, &quot;autocomplete&quot;, &quot;.gif&quot;, &quot;/alldata/&quot;, &quot;/api/&quot;, &quot;get / http/1.1&quot;, &quot;.jpeg&quot;, &quot;/ws/&quot; };</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">      for (int i = 0; i &lt; mimeTypes.length; i++) {</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">        if (request.contains(mimeTypes[i])) {</span>
+<span class="nc" id="L94">          tag = true;</span>
+<span class="nc" id="L95">          return lineJson;</span>
+        }
+      }
+
+<span class="nc bnc" id="L99" title="All 2 branches missed.">      if (tag == false) {</span>
+<span class="nc" id="L100">        ApacheAccessLog accesslog = new ApacheAccessLog();</span>
+<span class="nc" id="L101">        accesslog.LogType = &quot;PO.DAAC&quot;;</span>
+<span class="nc" id="L102">        accesslog.IP = matcher.group(1);</span>
+<span class="nc" id="L103">        accesslog.Request = matcher.group(5);</span>
+<span class="nc" id="L104">        accesslog.Response = matcher.group(6);</span>
+<span class="nc" id="L105">        accesslog.Bytes = Double.parseDouble(bytes);</span>
+<span class="nc" id="L106">        accesslog.Referer = matcher.group(8);</span>
+<span class="nc" id="L107">        accesslog.Browser = matcher.group(9);</span>
+<span class="nc" id="L108">        SimpleDateFormat df = new SimpleDateFormat(&quot;yyyy-MM-dd'T'HH:mm:ss.sss'Z'&quot;);</span>
+<span class="nc" id="L109">        accesslog.Time = df.format(date);</span>
+
+<span class="nc" id="L111">        Gson gson = new Gson();</span>
+<span class="nc" id="L112">        lineJson = gson.toJson(accesslog);</span>
+
+<span class="nc" id="L114">        return lineJson;</span>
+      }
+    }
+
+<span class="nc" id="L118">    lineJson = &quot;{}&quot;;</span>
+<span class="nc" id="L119">    return lineJson;</span>
+  }
+
+  public static boolean checknull(WebLog s) {
+<span class="nc bnc" id="L123" title="All 2 branches missed.">    if (s == null) {</span>
+<span class="nc" id="L124">      return false;</span>
+    }
+<span class="nc" id="L126">    return true;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

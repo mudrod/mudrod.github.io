@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Searcher.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.ssearch</a> &gt; <span class="el_source">Searcher.java</span></div><h1>Searcher.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.ssearch;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import gov.nasa.jpl.mudrod.discoveryengine.MudrodAbstract;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.ssearch.structure.SResult;
+
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.sort.SortBuilder;
+import org.elasticsearch.search.sort.SortOrder;
+
+import java.io.Serializable;
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.regex.Pattern;
+
+/**
+ * Supports ability to performance semantic search with a given query
+ */
+public class Searcher extends MudrodAbstract implements Serializable {
+  /**
+   * 
+   */
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L47">  DecimalFormat NDForm = new DecimalFormat(&quot;#.##&quot;);</span>
+<span class="nc" id="L48">  final Integer MAX_CHAR = 700;</span>
+
+  public Searcher(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L51">    super(props, es, spark);</span>
+<span class="nc" id="L52">  }</span>
+
+  /**
+   * Method of converting processing level string into a number
+   *
+   * @param pro processing level string
+   * @return processing level number
+   */
+  public Double getProLevelNum(String pro) {
+<span class="nc bnc" id="L61" title="All 2 branches missed.">    if (pro == null) {</span>
+<span class="nc" id="L62">      return 1.0;</span>
+    }
+    Double proNum;
+<span class="nc" id="L65">    Pattern p = Pattern.compile(&quot;.*[a-zA-Z].*&quot;);</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">    if (pro.matches(&quot;[0-9]{1}[a-zA-Z]{1}&quot;)) {</span>
+<span class="nc" id="L67">      proNum = Double.parseDouble(pro.substring(0, 1));</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">    } else if (p.matcher(pro).find()) {</span>
+<span class="nc" id="L69">      proNum = 1.0;</span>
+    } else {
+<span class="nc" id="L71">      proNum = Double.parseDouble(pro);</span>
+    }
+
+<span class="nc" id="L74">    return proNum;</span>
+  }
+
+  public Double getPop(Double pop) {
+<span class="nc bnc" id="L78" title="All 2 branches missed.">    if (pop &gt; 1000) {</span>
+<span class="nc" id="L79">      pop = 1000.0;</span>
+    }
+<span class="nc" id="L81">    return pop;</span>
+  }
+
+  /**
+   * Method of checking if query exists in a certain attribute
+   *
+   * @param strList attribute value in the form of ArrayList
+   * @param query   query string
+   * @return 1 means query exists, 0 otherwise
+   */
+  public Double exists(ArrayList&lt;String&gt; strList, String query) {
+<span class="nc" id="L92">    Double val = 0.0;</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">    if (strList != null) {</span>
+<span class="nc" id="L94">      String str = String.join(&quot;, &quot;, strList);</span>
+<span class="nc bnc" id="L95" title="All 6 branches missed.">      if (str != null &amp;&amp; str.length() != 0 &amp;&amp; str.toLowerCase().trim().contains(query)) {</span>
+<span class="nc" id="L96">        val = 1.0;</span>
+      }
+    }
+<span class="nc" id="L99">    return val;</span>
+  }
+
+  /**
+   * Main method of semantic search
+   *
+   * @param index          index name in Elasticsearch
+   * @param type           type name in Elasticsearch
+   * @param query          regular query string
+   * @param queryOperator query mode- query, or, and
+   * @return a list of search result
+   */
+  @SuppressWarnings(&quot;unchecked&quot;)
+  public List&lt;SResult&gt; searchByQuery(String index, String type, String query, String queryOperator, String rankOption) {
+<span class="nc" id="L113">    boolean exists = es.getClient().admin().indices().prepareExists(index).execute().actionGet().isExists();</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">    if (!exists) {</span>
+<span class="nc" id="L115">      return new ArrayList&lt;&gt;();</span>
+    }
+
+<span class="nc" id="L118">    SortOrder order = null;</span>
+<span class="nc" id="L119">    String sortFiled = &quot;&quot;;</span>
+<span class="nc bnc" id="L120" title="All 10 branches missed.">    switch (rankOption) {</span>
+    case &quot;Rank-AllTimePopularity&quot;:
+<span class="nc" id="L122">      sortFiled = &quot;Dataset-AllTimePopularity&quot;;</span>
+<span class="nc" id="L123">      order = SortOrder.DESC;</span>
+<span class="nc" id="L124">      break;</span>
+    case &quot;Rank-MonthlyPopularity&quot;:
+<span class="nc" id="L126">      sortFiled = &quot;Dataset-MonthlyPopularity&quot;;</span>
+<span class="nc" id="L127">      order = SortOrder.DESC;</span>
+<span class="nc" id="L128">      break;</span>
+    case &quot;Rank-UserPopularity&quot;:
+<span class="nc" id="L130">      sortFiled = &quot;Dataset-UserPopularity&quot;;</span>
+<span class="nc" id="L131">      order = SortOrder.DESC;</span>
+<span class="nc" id="L132">      break;</span>
+    case &quot;Rank-LongName-Full&quot;:
+<span class="nc" id="L134">      sortFiled = &quot;Dataset-LongName.raw&quot;;</span>
+<span class="nc" id="L135">      order = SortOrder.ASC;</span>
+<span class="nc" id="L136">      break;</span>
+    case &quot;Rank-ShortName-Full&quot;:
+<span class="nc" id="L138">      sortFiled = &quot;Dataset-ShortName.raw&quot;;</span>
+<span class="nc" id="L139">      order = SortOrder.ASC;</span>
+<span class="nc" id="L140">      break;</span>
+    case &quot;Rank-GridSpatialResolution&quot;:
+<span class="nc" id="L142">      sortFiled = &quot;Dataset-GridSpatialResolution&quot;;</span>
+<span class="nc" id="L143">      order = SortOrder.DESC;</span>
+<span class="nc" id="L144">      break;</span>
+    case &quot;Rank-SatelliteSpatialResolution&quot;:
+<span class="nc" id="L146">      sortFiled = &quot;Dataset-SatelliteSpatialResolution&quot;;</span>
+<span class="nc" id="L147">      order = SortOrder.DESC;</span>
+<span class="nc" id="L148">      break;</span>
+    case &quot;Rank-StartTimeLong-Long&quot;:
+<span class="nc" id="L150">      sortFiled = &quot;DatasetCoverage-StartTimeLong-Long&quot;;</span>
+<span class="nc" id="L151">      order = SortOrder.ASC;</span>
+<span class="nc" id="L152">      break;</span>
+    case &quot;Rank-StopTimeLong-Long&quot;:
+<span class="nc" id="L154">      sortFiled = &quot;DatasetCoverage-StopTimeLong-Long&quot;;</span>
+<span class="nc" id="L155">      order = SortOrder.DESC;</span>
+<span class="nc" id="L156">      break;</span>
+    default:
+<span class="nc" id="L158">      sortFiled = &quot;Dataset-ShortName.raw&quot;;</span>
+<span class="nc" id="L159">      order = SortOrder.ASC;</span>
+      break;
+    }
+
+<span class="nc" id="L163">    Dispatcher dp = new Dispatcher(this.getConfig(), this.getES(), null);</span>
+<span class="nc" id="L164">    BoolQueryBuilder qb = dp.createSemQuery(query, 1.0, queryOperator);</span>
+<span class="nc" id="L165">    List&lt;SResult&gt; resultList = new ArrayList&lt;&gt;();</span>
+
+<span class="nc" id="L167">    SearchRequestBuilder builder = es.getClient().prepareSearch(index).setTypes(type).setQuery(qb).addSort(sortFiled, order).setSize(500).setTrackScores(true);</span>
+<span class="nc" id="L168">    SearchResponse response = builder.execute().actionGet();</span>
+
+<span class="nc bnc" id="L170" title="All 2 branches missed.">    for (SearchHit hit : response.getHits().getHits()) {</span>
+<span class="nc" id="L171">      Map&lt;String, Object&gt; result = hit.getSource();</span>
+<span class="nc" id="L172">      Double relevance = Double.valueOf(NDForm.format(hit.getScore()));</span>
+<span class="nc" id="L173">      String shortName = (String) result.get(&quot;Dataset-ShortName&quot;);</span>
+<span class="nc" id="L174">      String longName = (String) result.get(&quot;Dataset-LongName&quot;);</span>
+
+<span class="nc" id="L176">      ArrayList&lt;String&gt; topicList = (ArrayList&lt;String&gt;) result.get(&quot;DatasetParameter-Variable&quot;);</span>
+<span class="nc" id="L177">      String topic = &quot;&quot;;</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">      if (null != topicList) {</span>
+<span class="nc" id="L179">        topic = String.join(&quot;, &quot;, topicList);</span>
+      }
+<span class="nc" id="L181">      String content = (String) result.get(&quot;Dataset-Description&quot;);</span>
+
+<span class="nc bnc" id="L183" title="All 2 branches missed.">      if (!&quot;&quot;.equals(content)) {</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">        int maxLength = (content.length() &lt; MAX_CHAR) ? content.length() : MAX_CHAR;</span>
+<span class="nc" id="L185">        content = content.trim().substring(0, maxLength - 1) + &quot;...&quot;;</span>
+      }
+
+<span class="nc" id="L188">      ArrayList&lt;String&gt; longdate = (ArrayList&lt;String&gt;) result.get(&quot;DatasetCitation-ReleaseDateLong&quot;);</span>
+<span class="nc" id="L189">      Date date = new Date(Long.valueOf(longdate.get(0)).longValue());</span>
+<span class="nc" id="L190">      SimpleDateFormat df2 = new SimpleDateFormat(&quot;MM/dd/yyyy&quot;);</span>
+<span class="nc" id="L191">      String dateText = df2.format(date);</span>
+
+      // start date
+<span class="nc" id="L194">      Long start = (Long) result.get(&quot;DatasetCoverage-StartTimeLong-Long&quot;);</span>
+<span class="nc" id="L195">      Date startDate = new Date(start);</span>
+<span class="nc" id="L196">      String startDateTxt = df2.format(startDate);</span>
+
+      // end date
+<span class="nc" id="L199">      String end = (String) result.get(&quot;Dataset-DatasetCoverage-StopTimeLong&quot;);</span>
+<span class="nc" id="L200">      String endDateTxt = &quot;&quot;;</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">      if (&quot;&quot;.equals(end)) {</span>
+<span class="nc" id="L202">        endDateTxt = &quot;Present&quot;;</span>
+      } else {
+<span class="nc" id="L204">        Date endDate = new Date(Long.valueOf(end));</span>
+<span class="nc" id="L205">        endDateTxt = df2.format(endDate);</span>
+      }
+
+<span class="nc" id="L208">      String processingLevel = (String) result.get(&quot;Dataset-ProcessingLevel&quot;);</span>
+<span class="nc" id="L209">      Double proNum = getProLevelNum(processingLevel);</span>
+
+<span class="nc" id="L211">      Double userPop = getPop(((Integer) result.get(&quot;Dataset-UserPopularity&quot;)).doubleValue());</span>
+<span class="nc" id="L212">      Double allPop = getPop(((Integer) result.get(&quot;Dataset-AllTimePopularity&quot;)).doubleValue());</span>
+<span class="nc" id="L213">      Double monthPop = getPop(((Integer) result.get(&quot;Dataset-MonthlyPopularity&quot;)).doubleValue());</span>
+
+<span class="nc" id="L215">      List&lt;String&gt; sensors = (List&lt;String&gt;) result.get(&quot;DatasetSource-Sensor-ShortName&quot;);</span>
+
+<span class="nc" id="L217">      SResult re = new SResult(shortName, longName, topic, content, dateText);</span>
+
+<span class="nc" id="L219">      SResult.set(re, &quot;term&quot;, relevance);</span>
+<span class="nc" id="L220">      SResult.set(re, &quot;releaseDate&quot;, Long.valueOf(longdate.get(0)).doubleValue());</span>
+<span class="nc" id="L221">      SResult.set(re, &quot;processingLevel&quot;, processingLevel);</span>
+<span class="nc" id="L222">      SResult.set(re, &quot;processingL&quot;, proNum);</span>
+<span class="nc" id="L223">      SResult.set(re, &quot;userPop&quot;, userPop);</span>
+<span class="nc" id="L224">      SResult.set(re, &quot;allPop&quot;, allPop);</span>
+<span class="nc" id="L225">      SResult.set(re, &quot;monthPop&quot;, monthPop);</span>
+<span class="nc" id="L226">      SResult.set(re, &quot;startDate&quot;, startDateTxt);</span>
+<span class="nc" id="L227">      SResult.set(re, &quot;endDate&quot;, endDateTxt);</span>
+<span class="nc" id="L228">      SResult.set(re, &quot;sensors&quot;, String.join(&quot;, &quot;, sensors));</span>
+
+<span class="nc" id="L230">      QueryBuilder queryLabelSearch = QueryBuilders.boolQuery().must(QueryBuilders.termQuery(&quot;query&quot;, query)).must(QueryBuilders.termQuery(&quot;dataID&quot;, shortName));</span>
+<span class="nc" id="L231">      SearchResponse labelRes = es.getClient().prepareSearch(index).setTypes(&quot;trainingranking&quot;).setQuery(queryLabelSearch).setSize(5).execute().actionGet();</span>
+<span class="nc" id="L232">      String labelString = null;</span>
+<span class="nc bnc" id="L233" title="All 2 branches missed.">      for (SearchHit label : labelRes.getHits().getHits()) {</span>
+<span class="nc" id="L234">        Map&lt;String, Object&gt; labelItem = label.getSource();</span>
+<span class="nc" id="L235">        labelString = (String) labelItem.get(&quot;label&quot;);</span>
+      }
+<span class="nc" id="L237">      SResult.set(re, &quot;label&quot;, labelString);</span>
+<span class="nc" id="L238">      resultList.add(re);</span>
+    }
+
+<span class="nc" id="L241">    return resultList;</span>
+  }
+
+  /**
+   * Method of semantic search to generate JSON string
+   *
+   * @param index          index name in Elasticsearch
+   * @param type           type name in Elasticsearch
+   * @param query          regular query string
+   * @param queryOperator query mode- query, or, and
+   * @param rr             selected ranking method
+   * @return search results
+   */
+  public String ssearch(String index, String type, String query, String queryOperator, String rankOption, Ranker rr) {
+<span class="nc" id="L255">    List&lt;SResult&gt; li = searchByQuery(index, type, query, queryOperator, rankOption);</span>
+<span class="nc bnc" id="L256" title="All 2 branches missed.">    if (&quot;Rank-SVM&quot;.equals(rankOption)) {</span>
+<span class="nc" id="L257">      li = rr.rank(li);</span>
+    }
+<span class="nc" id="L259">    Gson gson = new Gson();</span>
+<span class="nc" id="L260">    List&lt;JsonObject&gt; fileList = new ArrayList&lt;&gt;();</span>
+
+<span class="nc bnc" id="L262" title="All 2 branches missed.">    for (int i = 0; i &lt; li.size(); i++) {</span>
+<span class="nc" id="L263">      JsonObject file = new JsonObject();</span>
+<span class="nc" id="L264">      file.addProperty(&quot;Short Name&quot;, (String) SResult.get(li.get(i), &quot;shortName&quot;));</span>
+<span class="nc" id="L265">      file.addProperty(&quot;Long Name&quot;, (String) SResult.get(li.get(i), &quot;longName&quot;));</span>
+<span class="nc" id="L266">      file.addProperty(&quot;Topic&quot;, (String) SResult.get(li.get(i), &quot;topic&quot;));</span>
+<span class="nc" id="L267">      file.addProperty(&quot;Description&quot;, (String) SResult.get(li.get(i), &quot;description&quot;));</span>
+<span class="nc" id="L268">      file.addProperty(&quot;Release Date&quot;, (String) SResult.get(li.get(i), &quot;relase_date&quot;));</span>
+<span class="nc" id="L269">      fileList.add(file);</span>
+
+<span class="nc" id="L271">      file.addProperty(&quot;Start/End Date&quot;, (String) SResult.get(li.get(i), &quot;startDate&quot;) + &quot; - &quot; + (String) SResult.get(li.get(i), &quot;endDate&quot;));</span>
+<span class="nc" id="L272">      file.addProperty(&quot;Processing Level&quot;, (String) SResult.get(li.get(i), &quot;processingLevel&quot;));</span>
+
+<span class="nc" id="L274">      file.addProperty(&quot;Sensor&quot;, (String) SResult.get(li.get(i), &quot;sensors&quot;));</span>
+    }
+<span class="nc" id="L276">    JsonElement fileListElement = gson.toJsonTree(fileList);</span>
+
+<span class="nc" id="L278">    JsonObject pDResults = new JsonObject();</span>
+<span class="nc" id="L279">    pDResults.add(&quot;PDResults&quot;, fileListElement);</span>
+<span class="nc" id="L280">    return pDResults.toString();</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

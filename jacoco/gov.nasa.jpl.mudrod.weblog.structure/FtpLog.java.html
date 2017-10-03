@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FtpLog.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.structure</a> &gt; <span class="el_source">FtpLog.java</span></div><h1>FtpLog.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.weblog.structure;
+
+import com.google.gson.Gson;
+import gov.nasa.jpl.mudrod.weblog.pre.ImportLogFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.Serializable;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+/**
+ * This class represents an FTP access log line.
+ */
+<span class="nc" id="L28">public class FtpLog extends WebLog implements Serializable {</span>
+
+<span class="nc" id="L30">  private static final Logger LOG = LoggerFactory.getLogger(ImportLogFile.class);</span>
+
+  public static String parseFromLogLine(String log) {
+
+    try {
+<span class="nc" id="L35">      String ip = log.split(&quot; +&quot;)[6];</span>
+
+<span class="nc" id="L37">      String time = log.split(&quot; +&quot;)[1] + &quot;:&quot; + log.split(&quot; +&quot;)[2] + &quot;:&quot; + log.split(&quot; +&quot;)[3] + &quot;:&quot; + log.split(&quot; +&quot;)[4];</span>
+
+<span class="nc" id="L39">      time = SwithtoNum(time);</span>
+<span class="nc" id="L40">      SimpleDateFormat formatter = new SimpleDateFormat(&quot;MM:dd:HH:mm:ss:yyyy&quot;);</span>
+<span class="nc" id="L41">      Date date = formatter.parse(time);</span>
+
+<span class="nc" id="L43">      String bytes = log.split(&quot; +&quot;)[7];</span>
+
+<span class="nc" id="L45">      String request = log.split(&quot; +&quot;)[8].toLowerCase();</span>
+
+<span class="nc bnc" id="L47" title="All 4 branches missed.">      if (!request.contains(&quot;/misc/&quot;) &amp;&amp; !request.contains(&quot;readme&quot;)) {</span>
+<span class="nc" id="L48">        FtpLog ftplog = new FtpLog();</span>
+<span class="nc" id="L49">        ftplog.LogType = &quot;ftp&quot;;</span>
+<span class="nc" id="L50">        ftplog.IP = ip;</span>
+<span class="nc" id="L51">        ftplog.Request = request;</span>
+<span class="nc" id="L52">        ftplog.Bytes = Double.parseDouble(bytes);</span>
+
+<span class="nc" id="L54">        SimpleDateFormat df = new SimpleDateFormat(&quot;yyyy-MM-dd'T'HH:mm:ss.sss'Z'&quot;);</span>
+<span class="nc" id="L55">        ftplog.Time = df.format(date);</span>
+
+<span class="nc" id="L57">        return new Gson().toJson(ftplog);</span>
+      }
+<span class="nc" id="L59">    } catch (Exception e) {</span>
+<span class="nc" id="L60">      LOG.warn(&quot;Error parsing ftp log line [{}]. Skipping this line.&quot;, log, e);</span>
+<span class="nc" id="L61">    }</span>
+<span class="nc" id="L62">    return &quot;{}&quot;;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

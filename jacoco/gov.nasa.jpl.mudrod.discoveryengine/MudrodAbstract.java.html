@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MudrodAbstract.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.discoveryengine</a> &gt; <span class="el_source">MudrodAbstract.java</span></div><h1>MudrodAbstract.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.discoveryengine;
+
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+import org.apache.commons.io.IOUtils;
+import org.codehaus.jettison.json.JSONException;
+import org.codehaus.jettison.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.CheckForNull;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Serializable;
+import java.util.Properties;
+
+/**
+ * This is the most generic class of Mudrod
+ */
+public abstract class MudrodAbstract implements Serializable {
+
+<span class="nc" id="L36">  private static final Logger LOG = LoggerFactory.getLogger(MudrodAbstract.class);</span>
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L41">  protected Properties props = new Properties();</span>
+<span class="nc" id="L42">  protected ESDriver es = null;</span>
+<span class="nc" id="L43">  protected SparkDriver spark = null;</span>
+  protected long startTime;
+  protected long endTime;
+
+  protected static final String ES_SETTINGS = &quot;elastic_settings.json&quot;;
+  protected static final String ES_MAPPINGS = &quot;elastic_mappings.json&quot;;
+
+<span class="nc" id="L50">  public MudrodAbstract(Properties props, ESDriver es, SparkDriver spark) {</span>
+<span class="nc" id="L51">    this.props = props;</span>
+<span class="nc" id="L52">    this.es = es;</span>
+<span class="nc" id="L53">    this.spark = spark;</span>
+
+<span class="nc bnc" id="L55" title="All 2 branches missed.">    if (this.props != null) {</span>
+<span class="nc" id="L56">      this.initMudrod();</span>
+    }
+<span class="nc" id="L58">  }</span>
+
+  /**
+   * Method of setting up essential configuration for MUDROD to start
+   */
+  @CheckForNull
+  protected void initMudrod() {
+<span class="nc" id="L65">    InputStream settingsStream = getClass().getClassLoader().getResourceAsStream(ES_SETTINGS);</span>
+<span class="nc" id="L66">    InputStream mappingsStream = getClass().getClassLoader().getResourceAsStream(ES_MAPPINGS);</span>
+<span class="nc" id="L67">    JSONObject settingsJSON = null;</span>
+<span class="nc" id="L68">    JSONObject mappingJSON = null;</span>
+
+    try {
+<span class="nc" id="L71">      settingsJSON = new JSONObject(IOUtils.toString(settingsStream));</span>
+<span class="nc" id="L72">    } catch (JSONException | IOException e1) {</span>
+<span class="nc" id="L73">      LOG.error(&quot;Error reading Elasticsearch settings!&quot;, e1);</span>
+<span class="nc" id="L74">    }</span>
+
+    try {
+<span class="nc" id="L77">      mappingJSON = new JSONObject(IOUtils.toString(mappingsStream));</span>
+<span class="nc" id="L78">    } catch (JSONException | IOException e1) {</span>
+<span class="nc" id="L79">      LOG.error(&quot;Error reading Elasticsearch mappings!&quot;, e1);</span>
+<span class="nc" id="L80">    }</span>
+
+    try {
+<span class="nc bnc" id="L83" title="All 4 branches missed.">      if (settingsJSON != null &amp;&amp; mappingJSON != null) {</span>
+<span class="nc" id="L84">        this.es.putMapping(props.getProperty(MudrodConstants.ES_INDEX_NAME), settingsJSON.toString(), mappingJSON.toString());</span>
+      }
+<span class="nc" id="L86">    } catch (IOException e) {</span>
+<span class="nc" id="L87">      LOG.error(&quot;Error entering Elasticsearch Mappings!&quot;, e);</span>
+<span class="nc" id="L88">    }</span>
+<span class="nc" id="L89">  }</span>
+
+  /**
+   * Get driver of Elasticsearch
+   *
+   * @return driver of Elasticsearch
+   */
+  public ESDriver getES() {
+<span class="nc" id="L97">    return this.es;</span>
+  }
+
+  /**
+   * Get configuration of MUDROD (read from configuration file)
+   *
+   * @return configuration of MUDROD
+   */
+  public Properties getConfig() {
+<span class="nc" id="L106">    return this.props;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

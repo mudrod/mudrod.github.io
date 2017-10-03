@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WeblogDiscoveryEngine.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.discoveryengine</a> &gt; <span class="el_source">WeblogDiscoveryEngine.java</span></div><h1>WeblogDiscoveryEngine.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.discoveryengine;
+
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+import gov.nasa.jpl.mudrod.weblog.pre.*;
+import gov.nasa.jpl.mudrod.weblog.process.ClickStreamAnalyzer;
+import gov.nasa.jpl.mudrod.weblog.process.UserHistoryAnalyzer;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+
+/**
+ * Supports to preprocess and process web log
+ */
+public class WeblogDiscoveryEngine extends DiscoveryEngineAbstract {
+
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L46">  private static final Logger LOG = LoggerFactory.getLogger(WeblogDiscoveryEngine.class);</span>
+<span class="nc" id="L47">  public String timeSuffix = null;</span>
+
+  public WeblogDiscoveryEngine(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L50">    super(props, es, spark);</span>
+<span class="nc" id="L51">    LOG.info(&quot;Started Mudrod Weblog Discovery Engine.&quot;);</span>
+<span class="nc" id="L52">  }</span>
+
+  /**
+   * Get log file list from a directory
+   *
+   * @param logDir path to directory containing logs either local or in HDFS.
+   * @return a list of log files
+   */
+  public List&lt;String&gt; getFileList(String logDir) {
+
+<span class="nc" id="L62">    ArrayList&lt;String&gt; inputList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L63" title="All 2 branches missed.">    if (!logDir.startsWith(&quot;hdfs://&quot;)) {</span>
+<span class="nc" id="L64">      File directory = new File(logDir);</span>
+<span class="nc" id="L65">      File[] fList = directory.listFiles();</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">      for (File file : fList) {</span>
+<span class="nc bnc" id="L67" title="All 6 branches missed.">        if (file.isFile() &amp;&amp; file.getName().matches(&quot;.*\\d+.*&quot;) &amp;&amp; file.getName().contains(props.getProperty(MudrodConstants.HTTP_PREFIX))) {</span>
+<span class="nc" id="L68">          inputList.add(file.getName().replace(props.getProperty(MudrodConstants.HTTP_PREFIX), &quot;&quot;));</span>
+        }
+      }
+<span class="nc" id="L71">    } else {</span>
+<span class="nc" id="L72">      Configuration conf = new Configuration();</span>
+<span class="nc" id="L73">      try (FileSystem fs = FileSystem.get(new URI(logDir), conf)) {</span>
+        FileStatus[] fileStatus;
+<span class="nc" id="L75">        fileStatus = fs.listStatus(new Path(logDir));</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">        for (FileStatus status : fileStatus) {</span>
+<span class="nc" id="L77">          String path1 = status.getPath().toString();</span>
+<span class="nc bnc" id="L78" title="All 4 branches missed.">          if (path1.matches(&quot;.*\\d+.*&quot;) &amp;&amp; path1.contains(props.getProperty(MudrodConstants.HTTP_PREFIX))) {</span>
+
+<span class="nc" id="L80">            String time = path1.substring(path1.lastIndexOf('.') + 1);</span>
+<span class="nc" id="L81">            inputList.add(time);</span>
+          }
+        }
+<span class="nc" id="L84">      } catch (IllegalArgumentException | IOException | URISyntaxException e) {</span>
+<span class="nc" id="L85">        LOG.error(&quot;An error occured whilst obtaining the log file list.&quot;, e);</span>
+<span class="nc" id="L86">      }</span>
+    }
+
+<span class="nc" id="L89">    return inputList;</span>
+  }
+
+  /**
+   * Method of preprocessing web logs, generating vocab similarity based on web
+   * logs
+   */
+  @Override
+  public void preprocess() {
+<span class="nc" id="L98">    LOG.info(&quot;Starting Web log preprocessing.&quot;);</span>
+
+<span class="nc" id="L100">    ArrayList&lt;String&gt; inputList = (ArrayList&lt;String&gt;) getFileList(props.getProperty(MudrodConstants.DATA_DIR));</span>
+
+<span class="nc bnc" id="L102" title="All 2 branches missed.">    for (int i = 0; i &lt; inputList.size(); i++) {</span>
+<span class="nc" id="L103">      timeSuffix = inputList.get(i);</span>
+<span class="nc" id="L104">      props.put(MudrodConstants.TIME_SUFFIX, timeSuffix);</span>
+<span class="nc" id="L105">      startTime = System.currentTimeMillis();</span>
+<span class="nc" id="L106">      LOG.info(&quot;Processing logs dated {}&quot;, inputList.get(i));</span>
+
+<span class="nc" id="L108">      DiscoveryStepAbstract im = new ImportLogFile(this.props, this.es, this.spark);</span>
+<span class="nc" id="L109">      im.execute();</span>
+
+<span class="nc" id="L111">      DiscoveryStepAbstract cd = new CrawlerDetection(this.props, this.es, this.spark);</span>
+<span class="nc" id="L112">      cd.execute();</span>
+
+<span class="nc" id="L114">      DiscoveryStepAbstract sg = new SessionGenerator(this.props, this.es, this.spark);</span>
+<span class="nc" id="L115">      sg.execute();</span>
+
+<span class="nc" id="L117">      DiscoveryStepAbstract ss = new SessionStatistic(this.props, this.es, this.spark);</span>
+<span class="nc" id="L118">      ss.execute();</span>
+
+<span class="nc" id="L120">      DiscoveryStepAbstract rr = new RemoveRawLog(this.props, this.es, this.spark);</span>
+<span class="nc" id="L121">      rr.execute();</span>
+
+<span class="nc" id="L123">      endTime = System.currentTimeMillis();</span>
+
+<span class="nc" id="L125">      LOG.info(&quot;Web log preprocessing for logs dated {} complete. Time elapsed {} seconds.&quot;, inputList.get(i), (endTime - startTime) / 1000);</span>
+    }
+
+<span class="nc" id="L128">    DiscoveryStepAbstract hg = new HistoryGenerator(this.props, this.es, this.spark);</span>
+<span class="nc" id="L129">    hg.execute();</span>
+
+<span class="nc" id="L131">    DiscoveryStepAbstract cg = new ClickStreamGenerator(this.props, this.es, this.spark);</span>
+<span class="nc" id="L132">    cg.execute();</span>
+
+<span class="nc" id="L134">    LOG.info(&quot;Web log preprocessing (user history and clickstream) complete.&quot;);</span>
+<span class="nc" id="L135">  }</span>
+
+  /**
+   * Method of web log ingest
+   */
+  public void logIngest() {
+<span class="nc" id="L141">    LOG.info(&quot;Starting Web log ingest.&quot;);</span>
+<span class="nc" id="L142">    ArrayList&lt;String&gt; inputList = (ArrayList&lt;String&gt;) getFileList(props.getProperty(MudrodConstants.DATA_DIR));</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">    for (int i = 0; i &lt; inputList.size(); i++) {</span>
+<span class="nc" id="L144">      timeSuffix = inputList.get(i);</span>
+<span class="nc" id="L145">      props.put(&quot;TimeSuffix&quot;, timeSuffix);</span>
+<span class="nc" id="L146">      DiscoveryStepAbstract im = new ImportLogFile(this.props, this.es, this.spark);</span>
+<span class="nc" id="L147">      im.execute();</span>
+    }
+
+<span class="nc" id="L150">    LOG.info(&quot;Web log ingest complete.&quot;);</span>
+
+<span class="nc" id="L152">  }</span>
+
+  /**
+   * Method of reconstructing user sessions from raw web logs
+   */
+  public void sessionRestruct() {
+<span class="nc" id="L158">    LOG.info(&quot;Starting Session reconstruction.&quot;);</span>
+<span class="nc" id="L159">    ArrayList&lt;String&gt; inputList = (ArrayList&lt;String&gt;) getFileList(props.getProperty(MudrodConstants.DATA_DIR));</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">    for (int i = 0; i &lt; inputList.size(); i++) {</span>
+<span class="nc" id="L161">      timeSuffix = inputList.get(i); // change timeSuffix dynamically</span>
+<span class="nc" id="L162">      props.put(MudrodConstants.TIME_SUFFIX, timeSuffix);</span>
+<span class="nc" id="L163">      DiscoveryStepAbstract cd = new CrawlerDetection(this.props, this.es, this.spark);</span>
+<span class="nc" id="L164">      cd.execute();</span>
+
+<span class="nc" id="L166">      DiscoveryStepAbstract sg = new SessionGenerator(this.props, this.es, this.spark);</span>
+<span class="nc" id="L167">      sg.execute();</span>
+
+<span class="nc" id="L169">      DiscoveryStepAbstract ss = new SessionStatistic(this.props, this.es, this.spark);</span>
+<span class="nc" id="L170">      ss.execute();</span>
+
+<span class="nc" id="L172">      DiscoveryStepAbstract rr = new RemoveRawLog(this.props, this.es, this.spark);</span>
+<span class="nc" id="L173">      rr.execute();</span>
+
+<span class="nc" id="L175">      endTime = System.currentTimeMillis();</span>
+    }
+<span class="nc" id="L177">    LOG.info(&quot;Session reconstruction complete.&quot;);</span>
+<span class="nc" id="L178">  }</span>
+
+  @Override
+  public void process() {
+<span class="nc" id="L182">    LOG.info(&quot;Starting Web log processing.&quot;);</span>
+<span class="nc" id="L183">    startTime = System.currentTimeMillis();</span>
+
+<span class="nc" id="L185">    DiscoveryStepAbstract svd = new ClickStreamAnalyzer(this.props, this.es, this.spark);</span>
+<span class="nc" id="L186">    svd.execute();</span>
+
+<span class="nc" id="L188">    DiscoveryStepAbstract ua = new UserHistoryAnalyzer(this.props, this.es, this.spark);</span>
+<span class="nc" id="L189">    ua.execute();</span>
+
+<span class="nc" id="L191">    endTime = System.currentTimeMillis();</span>
+<span class="nc" id="L192">    LOG.info(&quot;Web log processing complete. Time elaspsed {} seconds.&quot;, (endTime - startTime) / 1000);</span>
+<span class="nc" id="L193">  }</span>
+
+  @Override
+  public void output() {
+    // not implemented yet!
+<span class="nc" id="L198">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

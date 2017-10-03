@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LogAbstract.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.pre</a> &gt; <span class="el_source">LogAbstract.java</span></div><h1>LogAbstract.java</h1><pre class="source lang-java linenums">package gov.nasa.jpl.mudrod.weblog.pre;
+
+import gov.nasa.jpl.mudrod.discoveryengine.DiscoveryStepAbstract;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+import gov.nasa.jpl.mudrod.weblog.partition.KGreedyPartitionSolver;
+import gov.nasa.jpl.mudrod.weblog.partition.ThePartitionProblemSolver;
+import gov.nasa.jpl.mudrod.weblog.partition.logPartitioner;
+import org.apache.commons.io.IOUtils;
+import org.apache.spark.Partition;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.codehaus.jettison.json.JSONException;
+import org.codehaus.jettison.json.JSONObject;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.aggregations.AggregationBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
+import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
+import org.elasticsearch.search.aggregations.bucket.histogram.Histogram.Order;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import scala.Tuple2;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.*;
+
+public class LogAbstract extends DiscoveryStepAbstract {
+
+  /**
+   * 
+   */
+  private static final long serialVersionUID = 1L;
+
+<span class="nc" id="L39">  private static final Logger LOG = LoggerFactory.getLogger(LogAbstract.class);</span>
+
+<span class="nc" id="L41">  public String logIndex = null;</span>
+<span class="nc" id="L42">  public String httpType = null;</span>
+<span class="nc" id="L43">  public String ftpType = null;</span>
+<span class="nc" id="L44">  public String cleanupType = null;</span>
+<span class="nc" id="L45">  public String sessionStats = null;</span>
+<span class="nc" id="L46">  public int partition = 96;</span>
+
+  public LogAbstract(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L49">    super(props, es, spark);</span>
+<span class="nc bnc" id="L50" title="All 2 branches missed.">    if (props != null) {</span>
+<span class="nc" id="L51">      initLogIndex();</span>
+    }
+<span class="nc" id="L53">  }</span>
+
+  protected void initLogIndex() {
+<span class="nc" id="L56">    logIndex = props.getProperty(MudrodConstants.LOG_INDEX) + props.getProperty(MudrodConstants.TIME_SUFFIX);</span>
+<span class="nc" id="L57">    httpType = props.getProperty(MudrodConstants.HTTP_TYPE_PREFIX);</span>
+<span class="nc" id="L58">    ftpType = props.getProperty(MudrodConstants.FTP_TYPE_PREFIX);</span>
+<span class="nc" id="L59">    cleanupType = props.getProperty(MudrodConstants.CLEANUP_TYPE_PREFIX);</span>
+<span class="nc" id="L60">    sessionStats = props.getProperty(MudrodConstants.SESSION_STATS_PREFIX);</span>
+
+<span class="nc" id="L62">    InputStream settingsStream = getClass().getClassLoader().getResourceAsStream(ES_SETTINGS);</span>
+<span class="nc" id="L63">    InputStream mappingsStream = getClass().getClassLoader().getResourceAsStream(ES_MAPPINGS);</span>
+<span class="nc" id="L64">    JSONObject settingsJSON = null;</span>
+<span class="nc" id="L65">    JSONObject mappingJSON = null;</span>
+
+    try {
+<span class="nc" id="L68">      settingsJSON = new JSONObject(IOUtils.toString(settingsStream));</span>
+<span class="nc" id="L69">    } catch (JSONException | IOException e1) {</span>
+<span class="nc" id="L70">      LOG.error(&quot;Error reading Elasticsearch settings!&quot;, e1);</span>
+<span class="nc" id="L71">    }</span>
+
+    try {
+<span class="nc" id="L74">      mappingJSON = new JSONObject(IOUtils.toString(mappingsStream));</span>
+<span class="nc" id="L75">    } catch (JSONException | IOException e1) {</span>
+<span class="nc" id="L76">      LOG.error(&quot;Error reading Elasticsearch mappings!&quot;, e1);</span>
+<span class="nc" id="L77">    }</span>
+
+    try {
+<span class="nc bnc" id="L80" title="All 4 branches missed.">      if (settingsJSON != null &amp;&amp; mappingJSON != null) {</span>
+<span class="nc" id="L81">        this.es.putMapping(logIndex, settingsJSON.toString(), mappingJSON.toString());</span>
+      }
+<span class="nc" id="L83">    } catch (IOException e) {</span>
+<span class="nc" id="L84">      LOG.error(&quot;Error entering Elasticsearch Mappings!&quot;, e);</span>
+<span class="nc" id="L85">    }</span>
+<span class="nc" id="L86">  }</span>
+
+  @Override
+  public Object execute() {
+<span class="nc" id="L90">    return null;</span>
+  }
+
+  @Override
+  public Object execute(Object o) {
+<span class="nc" id="L95">    return null;</span>
+  }
+
+  public JavaRDD&lt;String&gt; getUserRDD(String... type) {
+<span class="nc" id="L99">    Map&lt;String, Double&gt; userDocs = getUserDocs(type);</span>
+<span class="nc" id="L100">    return parallizeUsers(userDocs);</span>
+  }
+
+  public List&lt;String&gt; getUsers(String type) {
+
+<span class="nc" id="L105">    Terms users = this.getUserTerms(type);</span>
+<span class="nc" id="L106">    List&lt;String&gt; userList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">    for (Terms.Bucket entry : users.getBuckets()) {</span>
+<span class="nc" id="L108">      String ip = (String) entry.getKey();</span>
+<span class="nc" id="L109">      userList.add(ip);</span>
+<span class="nc" id="L110">    }</span>
+
+<span class="nc" id="L112">    return userList;</span>
+  }
+
+  public Terms getUserTerms(String... type) {
+
+<span class="nc" id="L117">    int docCount = es.getDocCount(logIndex, type);</span>
+
+<span class="nc" id="L119">    SearchResponse sr = es.getClient().prepareSearch(logIndex).setTypes(type).setQuery(QueryBuilders.matchAllQuery()).setSize(0)</span>
+<span class="nc" id="L120">        .addAggregation(AggregationBuilders.terms(&quot;Users&quot;).field(&quot;IP&quot;).size(docCount)).execute().actionGet();</span>
+<span class="nc" id="L121">    return sr.getAggregations().get(&quot;Users&quot;);</span>
+  }
+
+  public Map&lt;String, Double&gt; getUserDocs(String... type) {
+
+<span class="nc" id="L126">    Terms users = this.getUserTerms(type);</span>
+<span class="nc" id="L127">    Map&lt;String, Double&gt; userList = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">    for (Terms.Bucket entry : users.getBuckets()) {</span>
+<span class="nc" id="L129">      String ip = (String) entry.getKey();</span>
+<span class="nc" id="L130">      Long count = entry.getDocCount();</span>
+<span class="nc" id="L131">      userList.put(ip, Double.valueOf(count));</span>
+<span class="nc" id="L132">    }</span>
+
+<span class="nc" id="L134">    return userList;</span>
+  }
+
+  public Map&lt;String, Long&gt; getUserDailyDocs() {
+
+<span class="nc" id="L139">    int docCount = es.getDocCount(logIndex, httpType);</span>
+
+<span class="nc" id="L141">    AggregationBuilder dailyAgg = AggregationBuilders.dateHistogram(&quot;by_day&quot;).field(&quot;Time&quot;).dateHistogramInterval(DateHistogramInterval.DAY).order(Order.COUNT_DESC);</span>
+
+<span class="nc" id="L143">    SearchResponse sr = es.getClient().prepareSearch(logIndex).setTypes(httpType).setQuery(QueryBuilders.matchAllQuery()).setSize(0)</span>
+<span class="nc" id="L144">        .addAggregation(AggregationBuilders.terms(&quot;Users&quot;).field(&quot;IP&quot;).size(docCount).subAggregation(dailyAgg)).execute().actionGet();</span>
+<span class="nc" id="L145">    Terms users = sr.getAggregations().get(&quot;Users&quot;);</span>
+<span class="nc" id="L146">    Map&lt;String, Long&gt; userList = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">    for (Terms.Bucket user : users.getBuckets()) {</span>
+<span class="nc" id="L148">      String ip = (String) user.getKey();</span>
+
+<span class="nc" id="L150">      System.out.println(ip);</span>
+
+<span class="nc" id="L152">      Histogram agg = user.getAggregations().get(&quot;by_day&quot;);</span>
+<span class="nc" id="L153">      List&lt;? extends Histogram.Bucket&gt; dateList = agg.getBuckets();</span>
+<span class="nc" id="L154">      int size = dateList.size();</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">      for (int i = 0; i &lt; size; i++) {</span>
+<span class="nc" id="L156">        Long count = dateList.get(i).getDocCount();</span>
+<span class="nc" id="L157">        String date = dateList.get(i).getKey().toString();</span>
+
+<span class="nc" id="L159">        System.out.println(date);</span>
+<span class="nc" id="L160">        System.out.println(count);</span>
+      }
+<span class="nc" id="L162">    }</span>
+
+<span class="nc" id="L164">    return userList;</span>
+  }
+
+  protected void checkUserPartition(JavaRDD&lt;String&gt; userRDD) {
+<span class="nc" id="L168">    System.out.println(&quot;hhhhh&quot;);</span>
+<span class="nc" id="L169">    List&lt;Partition&gt; partitios = userRDD.partitions();</span>
+<span class="nc" id="L170">    System.out.println(partitios.size());</span>
+<span class="nc" id="L171">    int[] partitionIds = new int[partitios.size()];</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">    for (int i = 0; i &lt; partitios.size(); i++) {</span>
+<span class="nc" id="L173">      int index = partitios.get(i).index();</span>
+<span class="nc" id="L174">      partitionIds[i] = index;</span>
+    }
+
+<span class="nc" id="L177">    List&lt;String&gt;[] userIPs = userRDD.collectPartitions(partitionIds);</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">    for (int i = 0; i &lt; userIPs.length; i++) {</span>
+<span class="nc" id="L179">      List&lt;String&gt; iuser = userIPs[i];</span>
+<span class="nc" id="L180">      System.out.println(i + &quot; partition&quot;);</span>
+<span class="nc" id="L181">      System.out.println(iuser.toString());</span>
+    }
+<span class="nc" id="L183">  }</span>
+
+  public JavaRDD&lt;String&gt; parallizeUsers(Map&lt;String, Double&gt; userDocs) {
+
+    // prepare list for parallize
+<span class="nc" id="L188">    List&lt;Tuple2&lt;String, Double&gt;&gt; list = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">    for (String user : userDocs.keySet()) {</span>
+<span class="nc" id="L190">      list.add(new Tuple2&lt;String, Double&gt;(user, userDocs.get(user)));</span>
+<span class="nc" id="L191">    }</span>
+
+    // group users
+<span class="nc" id="L194">    ThePartitionProblemSolver solution = new KGreedyPartitionSolver();</span>
+<span class="nc" id="L195">    Map&lt;String, Integer&gt; userGroups = solution.solve(userDocs, this.partition);</span>
+
+<span class="nc" id="L197">    JavaPairRDD&lt;String, Double&gt; pairRdd = spark.sc.parallelizePairs(list);</span>
+<span class="nc" id="L198">    JavaPairRDD&lt;String, Double&gt; userPairRDD = pairRdd.partitionBy(new logPartitioner(userGroups, this.partition));</span>
+
+    // repartitioned user RDD
+<span class="nc" id="L201">    return userPairRDD.keys();</span>
+  }
+
+  public Terms getSessionTerms() {
+
+<span class="nc" id="L206">    int docCount = es.getDocCount(this.logIndex, this.cleanupType);</span>
+
+<span class="nc" id="L208">    SearchResponse sr = es.getClient().prepareSearch(this.logIndex).setTypes(this.cleanupType).setQuery(QueryBuilders.matchAllQuery())</span>
+<span class="nc" id="L209">        .addAggregation(AggregationBuilders.terms(&quot;Sessions&quot;).field(&quot;SessionID&quot;).size(docCount)).execute().actionGet();</span>
+
+<span class="nc" id="L211">    Terms Sessions = sr.getAggregations().get(&quot;Sessions&quot;);</span>
+<span class="nc" id="L212">    return Sessions;</span>
+  }
+
+  public List&lt;String&gt; getSessions() {
+
+<span class="nc" id="L217">    Terms sessions = this.getSessionTerms();</span>
+<span class="nc" id="L218">    List&lt;String&gt; sessionList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">    for (Terms.Bucket entry : sessions.getBuckets()) {</span>
+<span class="nc bnc" id="L220" title="All 4 branches missed.">      if (entry.getDocCount() &gt;= 3 &amp;&amp; !entry.getKey().equals(&quot;invalid&quot;)) {</span>
+<span class="nc" id="L221">        String session = (String) entry.getKey();</span>
+<span class="nc" id="L222">        sessionList.add(session);</span>
+      }
+<span class="nc" id="L224">    }</span>
+
+<span class="nc" id="L226">    return sessionList;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

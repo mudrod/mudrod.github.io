@@ -1,0 +1,344 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ImportLogFile.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.pre</a> &gt; <span class="el_source">ImportLogFile.java</span></div><h1>ImportLogFile.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.weblog.pre;
+
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.main.MudrodConstants;
+import gov.nasa.jpl.mudrod.weblog.structure.ApacheAccessLog;
+import gov.nasa.jpl.mudrod.weblog.structure.FtpLog;
+import org.apache.spark.api.java.JavaRDD;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.spark.rdd.api.java.JavaEsSpark;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+
+/**
+ * Supports ability to parse and process FTP and HTTP log files
+ */
+public class ImportLogFile extends LogAbstract {
+
+<span class="nc" id="L46">  private static final Logger LOG = LoggerFactory.getLogger(ImportLogFile.class);</span>
+
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+
+<span class="nc" id="L53">  String logEntryPattern = &quot;^([\\d.]+) (\\S+) (\\S+) \\[([\\w:/]+\\s[+\\-]\\d{4})\\] &quot; + &quot;\&quot;(.+?)\&quot; (\\d{3}) (\\d+|-) \&quot;((?:[^\&quot;]|\&quot;)+)\&quot; \&quot;([^\&quot;]+)\&quot;&quot;;</span>
+
+  public static final int NUM_FIELDS = 9;
+<span class="nc" id="L56">  Pattern p = Pattern.compile(logEntryPattern);</span>
+  transient Matcher matcher;
+
+  /**
+   * Constructor supporting a number of parameters documented below.
+   *
+   * @param props a {@link java.util.Map} containing K,V of type String, String
+   *              respectively.
+   * @param es    the {@link ESDriver} used to persist log
+   *              files.
+   * @param spark the {@link SparkDriver} used to process
+   *              input log files.
+   */
+  public ImportLogFile(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L70">    super(props, es, spark);</span>
+<span class="nc" id="L71">  }</span>
+
+  @Override
+  public Object execute() {
+<span class="nc" id="L75">    LOG.info(&quot;Starting Log Import {}&quot;, props.getProperty(MudrodConstants.TIME_SUFFIX));</span>
+<span class="nc" id="L76">    startTime = System.currentTimeMillis();</span>
+<span class="nc" id="L77">    readFile();</span>
+<span class="nc" id="L78">    endTime = System.currentTimeMillis();</span>
+<span class="nc" id="L79">    LOG.info(&quot;Log Import complete. Time elapsed {} seconds&quot;, (endTime - startTime) / 1000);</span>
+<span class="nc" id="L80">    es.refreshIndex();</span>
+<span class="nc" id="L81">    return null;</span>
+  }
+
+  /**
+   * Utility function to aid String to Number formatting such that three letter
+   * months such as 'Jan' are converted to the Gregorian integer equivalent.
+   *
+   * @param time the input {@link java.lang.String} to convert to int.
+   * @return the converted Month as an int.
+   */
+  public String switchtoNum(String time) {
+<span class="nc" id="L92">    String newTime = time;</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">    if (newTime.contains(&quot;Jan&quot;)) {</span>
+<span class="nc" id="L94">      newTime = newTime.replace(&quot;Jan&quot;, &quot;1&quot;);</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">    } else if (newTime.contains(&quot;Feb&quot;)) {</span>
+<span class="nc" id="L96">      newTime = newTime.replace(&quot;Feb&quot;, &quot;2&quot;);</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">    } else if (newTime.contains(&quot;Mar&quot;)) {</span>
+<span class="nc" id="L98">      newTime = newTime.replace(&quot;Mar&quot;, &quot;3&quot;);</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">    } else if (newTime.contains(&quot;Apr&quot;)) {</span>
+<span class="nc" id="L100">      newTime = newTime.replace(&quot;Apr&quot;, &quot;4&quot;);</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">    } else if (newTime.contains(&quot;May&quot;)) {</span>
+<span class="nc" id="L102">      newTime = newTime.replace(&quot;May&quot;, &quot;5&quot;);</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">    } else if (newTime.contains(&quot;Jun&quot;)) {</span>
+<span class="nc" id="L104">      newTime = newTime.replace(&quot;Jun&quot;, &quot;6&quot;);</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">    } else if (newTime.contains(&quot;Jul&quot;)) {</span>
+<span class="nc" id="L106">      newTime = newTime.replace(&quot;Jul&quot;, &quot;7&quot;);</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">    } else if (newTime.contains(&quot;Aug&quot;)) {</span>
+<span class="nc" id="L108">      newTime = newTime.replace(&quot;Aug&quot;, &quot;8&quot;);</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">    } else if (newTime.contains(&quot;Sep&quot;)) {</span>
+<span class="nc" id="L110">      newTime = newTime.replace(&quot;Sep&quot;, &quot;9&quot;);</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">    } else if (newTime.contains(&quot;Oct&quot;)) {</span>
+<span class="nc" id="L112">      newTime = newTime.replace(&quot;Oct&quot;, &quot;10&quot;);</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">    } else if (newTime.contains(&quot;Nov&quot;)) {</span>
+<span class="nc" id="L114">      newTime = newTime.replace(&quot;Nov&quot;, &quot;11&quot;);</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">    } else if (newTime.contains(&quot;Dec&quot;)) {</span>
+<span class="nc" id="L116">      newTime = newTime.replace(&quot;Dec&quot;, &quot;12&quot;);</span>
+    }
+<span class="nc" id="L118">    return newTime;</span>
+  }
+
+  public void readFile() {
+
+<span class="nc" id="L123">    String httplogpath = null;</span>
+<span class="nc" id="L124">    String ftplogpath = null;</span>
+    
+<span class="nc" id="L126">    File directory = new File(props.getProperty(MudrodConstants.DATA_DIR));</span>
+<span class="nc" id="L127">    File[] fList = directory.listFiles();</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">    for (File file : fList) {</span>
+<span class="nc bnc" id="L129" title="All 4 branches missed.">      if (file.isFile() &amp;&amp; file.getName().contains(props.getProperty(MudrodConstants.TIME_SUFFIX))) </span>
+      {
+<span class="nc bnc" id="L131" title="All 2 branches missed.">        if (file.getName().contains(props.getProperty(MudrodConstants.HTTP_PREFIX))) </span>
+        {
+<span class="nc" id="L133">          httplogpath = file.getAbsolutePath();</span>
+        }
+        
+<span class="nc bnc" id="L136" title="All 2 branches missed.">        if (file.getName().contains(props.getProperty(MudrodConstants.FTP_PREFIX))) </span>
+        {
+<span class="nc" id="L138">          ftplogpath = file.getAbsolutePath();</span>
+        }
+      }
+    }
+    
+<span class="nc bnc" id="L143" title="All 4 branches missed.">    if(httplogpath == null || ftplogpath == null)</span>
+    {
+<span class="nc" id="L145">      LOG.error(&quot;WWW file or FTP logs cannot be found, please check your data directory.&quot;);</span>
+<span class="nc" id="L146">      return;</span>
+    }
+
+<span class="nc" id="L149">    String processingType = props.getProperty(MudrodConstants.PROCESS_TYPE, &quot;parallel&quot;);</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">    if (processingType.equals(&quot;sequential&quot;)) {</span>
+<span class="nc" id="L151">      readFileInSequential(httplogpath, ftplogpath);</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">    } else if (processingType.equals(&quot;parallel&quot;)) {</span>
+<span class="nc" id="L153">      readFileInParallel(httplogpath, ftplogpath);</span>
+    }
+<span class="nc" id="L155">  }</span>
+
+  /**
+   * Read the FTP or HTTP log path with the intention of processing lines from
+   * log files.
+   *
+   * @param httplogpath path to the parent directory containing http logs
+   * @param ftplogpath  path to the parent directory containing ftp logs
+   */
+  public void readFileInSequential(String httplogpath, String ftplogpath) {
+<span class="nc" id="L165">    es.createBulkProcessor();</span>
+    try {
+<span class="nc" id="L167">      readLogFile(httplogpath, &quot;http&quot;, logIndex, httpType);</span>
+<span class="nc" id="L168">      readLogFile(ftplogpath, &quot;FTP&quot;, logIndex, ftpType);</span>
+
+<span class="nc" id="L170">    } catch (IOException e) {</span>
+<span class="nc" id="L171">      LOG.error(&quot;Error whilst reading log file.&quot;, e);</span>
+<span class="nc" id="L172">    }</span>
+<span class="nc" id="L173">    es.destroyBulkProcessor();</span>
+<span class="nc" id="L174">  }</span>
+
+  /**
+   * Read the FTP or HTTP log path with the intention of processing lines from
+   * log files.
+   *
+   * @param httplogpath path to the parent directory containing http logs
+   * @param ftplogpath  path to the parent directory containing ftp logs
+   */
+  public void readFileInParallel(String httplogpath, String ftplogpath) {
+
+<span class="nc" id="L185">    importHttpfile(httplogpath);</span>
+<span class="nc" id="L186">    importFtpfile(ftplogpath);</span>
+<span class="nc" id="L187">  }</span>
+
+  public void importHttpfile(String httplogpath) {
+    // import http logs
+<span class="nc" id="L191">    JavaRDD&lt;String&gt; accessLogs = spark.sc.textFile(httplogpath, this.partition).map(s -&gt; ApacheAccessLog.parseFromLogLine(s)).filter(ApacheAccessLog::checknull);</span>
+
+<span class="nc" id="L193">    JavaEsSpark.saveJsonToEs(accessLogs, logIndex + &quot;/&quot; + this.httpType);</span>
+<span class="nc" id="L194">  }</span>
+
+  public void importFtpfile(String ftplogpath) {
+    // import ftp logs
+<span class="nc" id="L198">    JavaRDD&lt;String&gt; ftpLogs = spark.sc.textFile(ftplogpath, this.partition).map(s -&gt; FtpLog.parseFromLogLine(s)).filter(FtpLog::checknull);</span>
+
+<span class="nc" id="L200">    JavaEsSpark.saveJsonToEs(ftpLogs, logIndex + &quot;/&quot; + this.ftpType);</span>
+<span class="nc" id="L201">  }</span>
+
+  /**
+   * Process a log path on local file system which contains the relevant
+   * parameters as below.
+   *
+   * @param fileName the {@link java.lang.String} path to the log directory on file
+   *                 system
+   * @param protocol whether to process 'http' or 'FTP'
+   * @param index    the index name to write logs to
+   * @param type     one of the available protocols from which Mudrod logs are obtained.
+   * @throws IOException if there is an error reading anything from the fileName provided.
+   */
+  public void readLogFile(String fileName, String protocol, String index, String type) throws IOException {
+<span class="nc" id="L215">    BufferedReader br = new BufferedReader(new FileReader(fileName));</span>
+<span class="nc" id="L216">    int count = 0;</span>
+    try {
+<span class="nc" id="L218">      String line = br.readLine();</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">      while (line != null) {</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">        if (&quot;FTP&quot;.equals(protocol)) {</span>
+<span class="nc" id="L221">          parseSingleLineFTP(line, index, type);</span>
+        } else {
+<span class="nc" id="L223">          parseSingleLineHTTP(line, index, type);</span>
+        }
+<span class="nc" id="L225">        line = br.readLine();</span>
+<span class="nc" id="L226">        count++;</span>
+      }
+<span class="nc" id="L228">    } catch (FileNotFoundException e) {</span>
+<span class="nc" id="L229">      LOG.error(&quot;File not found.&quot;, e);</span>
+<span class="nc" id="L230">    } catch (IOException e) {</span>
+<span class="nc" id="L231">      LOG.error(&quot;Error reading input directory.&quot;, e);</span>
+    } finally {
+<span class="nc" id="L233">      br.close();</span>
+<span class="nc" id="L234">      LOG.info(&quot;Num of {} entries:\t{}&quot;, protocol, count);</span>
+<span class="nc" id="L235">    }</span>
+<span class="nc" id="L236">  }</span>
+
+  /**
+   * Parse a single FTP log entry
+   *
+   * @param log   a single log line
+   * @param index the index name we wish to persist the log line to
+   * @param type  one of the available protocols from which Mudrod logs are obtained.
+   */
+  public void parseSingleLineFTP(String log, String index, String type) {
+<span class="nc" id="L246">    String ip = log.split(&quot; +&quot;)[6];</span>
+
+<span class="nc" id="L248">    String time = log.split(&quot; +&quot;)[1] + &quot;:&quot; + log.split(&quot; +&quot;)[2] + &quot;:&quot; + log.split(&quot; +&quot;)[3] + &quot;:&quot; + log.split(&quot; +&quot;)[4];</span>
+
+<span class="nc" id="L250">    time = switchtoNum(time);</span>
+<span class="nc" id="L251">    SimpleDateFormat formatter = new SimpleDateFormat(&quot;MM:dd:HH:mm:ss:yyyy&quot;);</span>
+<span class="nc" id="L252">    Date date = null;</span>
+    try {
+<span class="nc" id="L254">      date = formatter.parse(time);</span>
+<span class="nc" id="L255">    } catch (ParseException e) {</span>
+<span class="nc" id="L256">      LOG.error(&quot;Error whilst parsing the date.&quot;, e);</span>
+<span class="nc" id="L257">    }</span>
+<span class="nc" id="L258">    String bytes = log.split(&quot; +&quot;)[7];</span>
+
+<span class="nc" id="L260">    String request = log.split(&quot; +&quot;)[8].toLowerCase();</span>
+
+<span class="nc bnc" id="L262" title="All 4 branches missed.">    if (!request.contains(&quot;/misc/&quot;) &amp;&amp; !request.contains(&quot;readme&quot;)) {</span>
+      IndexRequest ir;
+      try {
+<span class="nc" id="L265">        ir = new IndexRequest(index, type)</span>
+<span class="nc" id="L266">            .source(jsonBuilder().startObject().field(&quot;LogType&quot;, &quot;ftp&quot;).field(&quot;IP&quot;, ip).field(&quot;Time&quot;, date).field(&quot;Request&quot;, request).field(&quot;Bytes&quot;, Long.parseLong(bytes)).endObject());</span>
+<span class="nc" id="L267">        es.getBulkProcessor().add(ir);</span>
+<span class="nc" id="L268">      } catch (NumberFormatException e) {</span>
+<span class="nc" id="L269">        LOG.error(&quot;Error whilst processing numbers&quot;, e);</span>
+<span class="nc" id="L270">      } catch (IOException e) {</span>
+<span class="nc" id="L271">        LOG.error(&quot;IOError whilst adding to the bulk processor.&quot;, e);</span>
+<span class="nc" id="L272">      }</span>
+    }
+
+<span class="nc" id="L275">  }</span>
+
+  /**
+   * Parse a single HTTP log entry
+   *
+   * @param log   a single log line
+   * @param index the index name we wish to persist the log line to
+   * @param type  one of the available protocols from which Mudrod logs are obtained.
+   */
+  public void parseSingleLineHTTP(String log, String index, String type) {
+<span class="nc" id="L285">    matcher = p.matcher(log);</span>
+<span class="nc bnc" id="L286" title="All 4 branches missed.">    if (!matcher.matches() || NUM_FIELDS != matcher.groupCount()) {</span>
+<span class="nc" id="L287">      return;</span>
+    }
+<span class="nc" id="L289">    String time = matcher.group(4);</span>
+<span class="nc" id="L290">    time = switchtoNum(time);</span>
+<span class="nc" id="L291">    SimpleDateFormat formatter = new SimpleDateFormat(&quot;dd/MM/yyyy:HH:mm:ss&quot;);</span>
+<span class="nc" id="L292">    Date date = null;</span>
+    try {
+<span class="nc" id="L294">      date = formatter.parse(time);</span>
+<span class="nc" id="L295">    } catch (ParseException e) {</span>
+<span class="nc" id="L296">      LOG.error(&quot;Error whilst attempting to parse date.&quot;, e);</span>
+<span class="nc" id="L297">    }</span>
+
+<span class="nc" id="L299">    String bytes = matcher.group(7);</span>
+<span class="nc bnc" id="L300" title="All 2 branches missed.">    if (&quot;-&quot;.equals(bytes)) {</span>
+<span class="nc" id="L301">      bytes = &quot;0&quot;;</span>
+    }
+
+<span class="nc" id="L304">    String request = matcher.group(5).toLowerCase();</span>
+<span class="nc" id="L305">    String agent = matcher.group(9);</span>
+<span class="nc" id="L306">    CrawlerDetection crawlerDe = new CrawlerDetection(this.props, this.es, this.spark);</span>
+<span class="nc bnc" id="L307" title="All 2 branches missed.">    if (!crawlerDe.checkKnownCrawler(agent)) {</span>
+<span class="nc" id="L308">      boolean tag = false;</span>
+<span class="nc" id="L309">      String[] mimeTypes = { &quot;.js&quot;, &quot;.css&quot;, &quot;.jpg&quot;, &quot;.png&quot;, &quot;.ico&quot;, &quot;image_captcha&quot;, &quot;autocomplete&quot;, &quot;.gif&quot;, &quot;/alldata/&quot;, &quot;/api/&quot;, &quot;get / http/1.1&quot;, &quot;.jpeg&quot;, &quot;/ws/&quot; };</span>
+<span class="nc bnc" id="L310" title="All 2 branches missed.">      for (int i = 0; i &lt; mimeTypes.length; i++) {</span>
+<span class="nc bnc" id="L311" title="All 2 branches missed.">        if (request.contains(mimeTypes[i])) {</span>
+<span class="nc" id="L312">          tag = true;</span>
+<span class="nc" id="L313">          break;</span>
+        }
+      }
+
+<span class="nc bnc" id="L317" title="All 2 branches missed.">      if (!tag) {</span>
+<span class="nc" id="L318">        IndexRequest ir = null;</span>
+<span class="nc" id="L319">        executeBulkRequest(ir, index, type, matcher, date, bytes);</span>
+      }
+    }
+<span class="nc" id="L322">  }</span>
+
+  private void executeBulkRequest(IndexRequest ir, String index, String type, Matcher matcher, Date date, String bytes) {
+<span class="nc" id="L325">    IndexRequest newIr = ir;</span>
+    try {
+<span class="nc" id="L327">      newIr = new IndexRequest(index, type).source(</span>
+<span class="nc" id="L328">          jsonBuilder().startObject().field(&quot;LogType&quot;, &quot;PO.DAAC&quot;).field(&quot;IP&quot;, matcher.group(1)).field(&quot;Time&quot;, date).field(&quot;Request&quot;, matcher.group(5)).field(&quot;Response&quot;, matcher.group(6))</span>
+<span class="nc" id="L329">              .field(&quot;Bytes&quot;, Integer.parseInt(bytes)).field(&quot;Referer&quot;, matcher.group(8)).field(&quot;Browser&quot;, matcher.group(9)).endObject());</span>
+
+<span class="nc" id="L331">      es.getBulkProcessor().add(newIr);</span>
+<span class="nc" id="L332">    } catch (NumberFormatException e) {</span>
+<span class="nc" id="L333">      LOG.error(&quot;Error whilst processing numbers&quot;, e);</span>
+<span class="nc" id="L334">    } catch (IOException e) {</span>
+<span class="nc" id="L335">      LOG.error(&quot;IOError whilst adding to the bulk processor.&quot;, e);</span>
+<span class="nc" id="L336">    }</span>
+<span class="nc" id="L337">  }</span>
+
+  @Override
+  public Object execute(Object o) {
+<span class="nc" id="L341">    return null;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

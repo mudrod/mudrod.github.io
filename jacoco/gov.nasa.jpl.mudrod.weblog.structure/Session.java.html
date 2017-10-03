@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Session.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.structure</a> &gt; <span class="el_source">Session.java</span></div><h1>Session.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.weblog.structure;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.sort.SortOrder;
+import org.joda.time.Seconds;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.ISODateTimeFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
+/**
+ * ClassName: Session Function: Session operations.
+ */
+public class Session /*extends MudrodAbstract*/ implements Comparable&lt;Session&gt; {
+<span class="nc" id="L40">  private static final Logger LOG = LoggerFactory.getLogger(Session.class);</span>
+  // start: start time of session
+  private String start;
+  // end: end time of session
+  private String end;
+  // id: original session ID
+  private String id;
+  // newid: new session ID
+<span class="nc" id="L48">  private String newid = null;</span>
+  // fmt: time formatter
+<span class="nc" id="L50">  private DateTimeFormatter fmt = ISODateTimeFormat.dateTime();</span>
+
+  private ESDriver es;
+  private Properties props;
+
+  /**
+   * Creates a new instance of Session.
+   *
+   * @param props the Mudrod configuration
+   * @param es    the Elasticsearch drive
+   * @param start start time of session
+   * @param end   end time of session
+   * @param id    session ID
+   */
+<span class="nc" id="L64">  public Session(Properties props, ESDriver es, String start, String end, String id) {</span>
+<span class="nc" id="L65">    this.start = start;</span>
+<span class="nc" id="L66">    this.end = end;</span>
+<span class="nc" id="L67">    this.id = id;</span>
+
+<span class="nc" id="L69">    this.props = props;</span>
+<span class="nc" id="L70">    this.es = es;</span>
+<span class="nc" id="L71">  }</span>
+
+  /**
+   * Creates a new instance of Session.
+   *
+   * @param props the Mudrod configuration
+   * @param es    the Elasticsearch drive
+   */
+<span class="nc" id="L79">  public Session(Properties props, ESDriver es) {</span>
+<span class="nc" id="L80">    this.props = props;</span>
+<span class="nc" id="L81">    this.es = es;</span>
+<span class="nc" id="L82">  }</span>
+
+  /**
+   * getID: Get original session ID
+   *
+   * @return session id
+   */
+  public String getID() {
+<span class="nc" id="L90">    return id;</span>
+  }
+
+  /**
+   * getNewID: Get new session ID
+   *
+   * @return new session id
+   */
+  public String getNewID() {
+<span class="nc" id="L99">    return newid;</span>
+  }
+
+  /**
+   * setNewID: Set new session ID
+   *
+   * @param str: session ID
+   * @return new session id
+   */
+  public String setNewID(String str) {
+<span class="nc" id="L109">    return newid = str;</span>
+  }
+
+  /**
+   * getStartTime:Get start time of current session
+   *
+   * @return start time of session
+   */
+  public String getStartTime() {
+<span class="nc" id="L118">    return start;</span>
+  }
+
+  /**
+   * getEndTime:Get end time of current session
+   *
+   * @return end time of session
+   */
+  public String getEndTime() {
+<span class="nc" id="L127">    return end;</span>
+  }
+
+  /**
+   * Compare current session with another session
+   *
+   * @see java.lang.Comparable#compareTo(java.lang.Object)
+   */
+  @Override
+  public int compareTo(Session o) {
+<span class="nc" id="L137">    fmt.parseDateTime(this.end);</span>
+<span class="nc" id="L138">    fmt.parseDateTime(o.end);</span>
+    // ascending order
+<span class="nc" id="L140">    return Seconds.secondsBetween(fmt.parseDateTime(o.end), fmt.parseDateTime(this.end)).getSeconds();</span>
+
+  }
+
+  /**
+   * getSessionDetail:Get detail of current session, which is used for session
+   * tree reconstruct
+   *
+   * @param indexName    name of index from which you wish to obtain session detail.
+   * @param type: Session type name in Elasticsearch
+   * @param sessionID:   Session ID
+   * @return Session details in Json format
+   */
+  public JsonObject getSessionDetail(String indexName, String type, String sessionID) {
+<span class="nc" id="L154">    JsonObject sessionResults = new JsonObject();</span>
+    // for session tree
+<span class="nc" id="L156">    SessionTree tree = null;</span>
+<span class="nc" id="L157">    JsonElement jsonRequest = null;</span>
+    try {
+<span class="nc" id="L159">      tree = this.getSessionTree(indexName, type, sessionID);</span>
+<span class="nc" id="L160">      JsonObject jsonTree = tree.treeToJson(tree.root);</span>
+<span class="nc" id="L161">      sessionResults.add(&quot;treeData&quot;, jsonTree);</span>
+
+<span class="nc" id="L163">      jsonRequest = this.getRequests(type, sessionID);</span>
+<span class="nc" id="L164">      sessionResults.add(&quot;RequestList&quot;, jsonRequest);</span>
+<span class="nc" id="L165">    } catch (UnsupportedEncodingException e) {</span>
+<span class="nc" id="L166">      LOG.error(&quot;Encoding error detected.&quot;, e);</span>
+
+<span class="nc" id="L168">    }</span>
+
+<span class="nc" id="L170">    return sessionResults;</span>
+  }
+
+  /**
+   * getClickStreamList: Extracted click stream list from current session.
+   *
+   * @param indexName    an index from which to query for a session list
+   * @param type: Session type name in Elasticsearch
+   * @param sessionID:   Session ID
+   * @return Click stram data list
+   * {@link ClickStream}
+   */
+  public List&lt;ClickStream&gt; getClickStreamList(String indexName, String type, String sessionID) {
+<span class="nc" id="L183">    SessionTree tree = null;</span>
+    try {
+<span class="nc" id="L185">      tree = this.getSessionTree(indexName, type, sessionID);</span>
+<span class="nc" id="L186">    } catch (UnsupportedEncodingException e) {</span>
+<span class="nc" id="L187">      LOG.error(&quot;Erro whilst obtaining the Session Tree: {}&quot;, e);</span>
+<span class="nc" id="L188">    }</span>
+
+<span class="nc" id="L190">    List&lt;ClickStream&gt; clickthroughs = tree.getClickStreamList();</span>
+<span class="nc" id="L191">    return clickthroughs;</span>
+  }
+
+  /**
+   * Method of converting a given session to a tree structure
+   *
+   * @param type session type name in Elasticsearch
+   * @param sessionID   ID of session
+   * @return an instance of session tree structure
+   * @throws UnsupportedEncodingException UnsupportedEncodingException
+   */
+  private SessionTree getSessionTree(String indexName, String type, String sessionID) throws UnsupportedEncodingException {
+
+<span class="nc" id="L204">    SearchResponse response = es.getClient().prepareSearch(indexName).setTypes(type).setQuery(QueryBuilders.termQuery(&quot;SessionID&quot;, sessionID)).setSize(100).addSort(&quot;Time&quot;, SortOrder.ASC)</span>
+<span class="nc" id="L205">        .execute().actionGet();</span>
+
+<span class="nc" id="L207">    SessionTree tree = new SessionTree(this.props, this.es, sessionID, type);</span>
+<span class="nc" id="L208">    int seq = 1;</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">    for (SearchHit hit : response.getHits().getHits()) {</span>
+<span class="nc" id="L210">      Map&lt;String, Object&gt; result = hit.getSource();</span>
+<span class="nc" id="L211">      String request = (String) result.get(&quot;Request&quot;);</span>
+<span class="nc" id="L212">      String time = (String) result.get(&quot;Time&quot;);</span>
+<span class="nc" id="L213">      String logType = (String) result.get(&quot;LogType&quot;);</span>
+<span class="nc" id="L214">      String referer = (String) result.get(&quot;Referer&quot;);</span>
+
+<span class="nc" id="L216">      SessionNode node = new SessionNode(request, logType, referer, time, seq);</span>
+<span class="nc" id="L217">      tree.insert(node);</span>
+<span class="nc" id="L218">      seq++;</span>
+    }
+
+<span class="nc" id="L221">    return tree;</span>
+  }
+
+  /**
+   * Method of getting all requests from a given current session
+   *
+   * @param cleanuptype Session type name in Elasticsearch
+   * @param sessionID   Session ID
+   * @return all of these requests in JSON
+   * @throws UnsupportedEncodingException UnsupportedEncodingException
+   */
+  private JsonElement getRequests(String cleanuptype, String sessionID) throws UnsupportedEncodingException {
+<span class="nc" id="L233">    SearchResponse response = es.getClient().prepareSearch(props.getProperty(&quot;indexName&quot;)).setTypes(cleanuptype).setQuery(QueryBuilders.termQuery(&quot;SessionID&quot;, sessionID)).setSize(100)</span>
+<span class="nc" id="L234">        .addSort(&quot;Time&quot;, SortOrder.ASC).execute().actionGet();</span>
+
+<span class="nc" id="L236">    Gson gson = new Gson();</span>
+<span class="nc" id="L237">    List&lt;JsonObject&gt; requestList = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L238">    int seq = 1;</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">    for (SearchHit hit : response.getHits().getHits()) {</span>
+<span class="nc" id="L240">      Map&lt;String, Object&gt; result = hit.getSource();</span>
+<span class="nc" id="L241">      String request = (String) result.get(&quot;Request&quot;);</span>
+<span class="nc" id="L242">      String requestUrl = (String) result.get(&quot;RequestUrl&quot;);</span>
+<span class="nc" id="L243">      String time = (String) result.get(&quot;Time&quot;);</span>
+<span class="nc" id="L244">      String logType = (String) result.get(&quot;LogType&quot;);</span>
+<span class="nc" id="L245">      String referer = (String) result.get(&quot;Referer&quot;);</span>
+
+<span class="nc" id="L247">      JsonObject req = new JsonObject();</span>
+<span class="nc" id="L248">      req.addProperty(&quot;Time&quot;, time);</span>
+<span class="nc" id="L249">      req.addProperty(&quot;Request&quot;, request);</span>
+<span class="nc" id="L250">      req.addProperty(&quot;RequestURL&quot;, requestUrl);</span>
+<span class="nc" id="L251">      req.addProperty(&quot;LogType&quot;, logType);</span>
+<span class="nc" id="L252">      req.addProperty(&quot;Referer&quot;, referer);</span>
+<span class="nc" id="L253">      req.addProperty(&quot;Seq&quot;, seq);</span>
+<span class="nc" id="L254">      requestList.add(req);</span>
+
+<span class="nc" id="L256">      seq++;</span>
+    }
+<span class="nc" id="L258">    return gson.toJsonTree(requestList);</span>
+  }
+
+  /**
+   * getClickStreamList: Extracted ranking training data from current session.
+   *
+   * @param indexName    an index from which to obtain ranked training data.
+   * @param cleanuptype: Session type name in Elasticsearch
+   * @param sessionID:   Session ID
+   * @return Click stram data list
+   * {@link ClickStream}
+   */
+  public List&lt;RankingTrainData&gt; getRankingTrainData(String indexName, String cleanuptype, String sessionID) {
+<span class="nc" id="L271">    SessionTree tree = null;</span>
+    try {
+<span class="nc" id="L273">      tree = this.getSessionTree(indexName, cleanuptype, sessionID);</span>
+<span class="nc" id="L274">    } catch (UnsupportedEncodingException e) {</span>
+<span class="nc" id="L275">      LOG.error(&quot;Error whilst retreiving Session Tree: {}&quot;, e);</span>
+<span class="nc" id="L276">    }</span>
+
+<span class="nc" id="L278">    List&lt;RankingTrainData&gt; trainData = new ArrayList&lt;&gt;();</span>
+    try {
+<span class="nc" id="L280">      trainData = tree.getRankingTrainData(indexName, sessionID);</span>
+<span class="nc" id="L281">    } catch (UnsupportedEncodingException e) {</span>
+<span class="nc" id="L282">      LOG.error(&quot;Error whilst retreiving ranking training data: {}&quot;, e);</span>
+<span class="nc" id="L283">    }</span>
+
+<span class="nc" id="L285">    return trainData;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

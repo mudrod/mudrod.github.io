@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MetadataDiscoveryEngine.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.discoveryengine</a> &gt; <span class="el_source">MetadataDiscoveryEngine.java</span></div><h1>MetadataDiscoveryEngine.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.discoveryengine;
+
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.metadata.pre.ApiHarvester;
+import gov.nasa.jpl.mudrod.metadata.pre.MatrixGenerator;
+import gov.nasa.jpl.mudrod.metadata.process.MetadataAnalyzer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.Serializable;
+import java.util.Properties;
+
+/**
+ * Supports to preprocess and process metadata
+ */
+public class MetadataDiscoveryEngine extends DiscoveryEngineAbstract implements Serializable {
+
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L36">  private static final Logger LOG = LoggerFactory.getLogger(MetadataDiscoveryEngine.class);</span>
+
+  public MetadataDiscoveryEngine(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L39">    super(props, es, spark);</span>
+<span class="nc" id="L40">  }</span>
+
+  /**
+   * Method of preprocessing metadata
+   */
+  public void preprocess() {
+<span class="nc" id="L46">    LOG.info(&quot;Starting metadata preprocessing...&quot;);</span>
+<span class="nc" id="L47">    startTime = System.currentTimeMillis();</span>
+
+<span class="nc" id="L49">    DiscoveryStepAbstract harvester = new ApiHarvester(this.props, this.es, this.spark);</span>
+<span class="nc" id="L50">    harvester.execute();</span>
+
+<span class="nc" id="L52">    endTime = System.currentTimeMillis();</span>
+<span class="nc" id="L53">    LOG.info(&quot;Finished metadata preprocessing. Time elapsed: {}s&quot;, (endTime - startTime) / 1000);</span>
+<span class="nc" id="L54">  }</span>
+
+  /**
+   * Method of processing metadata
+   */
+  public void process() {
+<span class="nc" id="L60">    LOG.info(&quot;Starting metadata processing...&quot;);</span>
+<span class="nc" id="L61">    startTime = System.currentTimeMillis();</span>
+
+<span class="nc" id="L63">    DiscoveryStepAbstract matrix = new MatrixGenerator(this.props, this.es, this.spark);</span>
+<span class="nc" id="L64">    matrix.execute();</span>
+
+<span class="nc" id="L66">    DiscoveryStepAbstract svd = new MetadataAnalyzer(this.props, this.es, this.spark);</span>
+<span class="nc" id="L67">    svd.execute();</span>
+
+<span class="nc" id="L69">    endTime = System.currentTimeMillis();</span>
+<span class="nc" id="L70">    LOG.info(&quot;Finished metadata processing. Time elapsed: {}s&quot;, (endTime - startTime) / 1000);</span>
+<span class="nc" id="L71">  }</span>
+
+  public void output() {
+<span class="nc" id="L74">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

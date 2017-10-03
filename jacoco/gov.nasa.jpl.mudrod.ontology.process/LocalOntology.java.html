@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LocalOntology.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.ontology.process</a> &gt; <span class="el_source">LocalOntology.java</span></div><h1>LocalOntology.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.ontology.process;
+
+import gov.nasa.jpl.mudrod.ontology.Ontology;
+
+import org.apache.jena.ontology.Individual;
+import org.apache.jena.ontology.OntClass;
+import org.apache.jena.ontology.OntModel;
+import org.apache.jena.ontology.OntModelSpec;
+import org.apache.jena.ontology.OntResource;
+import org.apache.jena.ontology.Restriction;
+import org.apache.jena.rdf.model.AnonId;
+import org.apache.jena.rdf.model.Literal;
+import org.apache.jena.rdf.model.ModelFactory;
+import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.shared.PrefixMapping;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.PrintStream;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * The LocalOntology implementation enables us to work with Ontology files
+ * whcih are cached locally and available on the runtime classpath e.g.
+ * in &lt;code&gt;src/main/resource/ontology/...&lt;/code&gt;.
+ * From here we can test and iterate on how use of ontology can enhance search.
+ */
+public class LocalOntology implements Ontology {
+
+<span class="fc" id="L50">  public static final Logger LOG = LoggerFactory.getLogger(LocalOntology.class);</span>
+
+  public static final String DELIMITER_SEARCHTERM = &quot; &quot;;
+
+<span class="fc" id="L54">  private Map&lt;Object, Object&gt; searchTerms = new HashMap&lt;&gt;();</span>
+  private static OntologyParser parser;
+  private static OntModel ontologyModel;
+  private Ontology ontology;
+<span class="fc" id="L58">  private static Map&lt;AnonId, String&gt; mAnonIDs = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L59">  private static int mAnonCount = 0;</span>
+  private List&lt;String&gt; ontArrayList;
+
+<span class="fc" id="L62">  public LocalOntology() {</span>
+    //only initialize all the static variables
+    //if first time called to this ontology constructor
+<span class="pc bpc" id="L65" title="1 of 2 branches missed.">    if (ontology == null) {</span>
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">      if (LOG.isInfoEnabled()) {</span>
+<span class="fc" id="L67">        LOG.info(&quot;Creating new ontology&quot;);</span>
+      }
+<span class="fc" id="L69">      parser = new OwlParser();</span>
+<span class="fc" id="L70">      ontology = this;</span>
+    }
+<span class="fc bfc" id="L72" title="All 2 branches covered.">    if (ontologyModel == null)</span>
+<span class="fc" id="L73">      ontologyModel = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM, null);</span>
+<span class="fc" id="L74">    load();</span>
+<span class="fc" id="L75">  }</span>
+
+  /**
+   * Static accessor for {@link LocalOntology}
+   * instance implementation defined within &lt;code&gt;config.xml&lt;/code&gt;.
+   *
+   * @return a {@link LocalOntology}
+   */
+  public Ontology getInstance() {
+<span class="pc bpc" id="L84" title="1 of 2 branches missed.">    if (ontology == null) {</span>
+<span class="nc" id="L85">      ontology = new LocalOntology();</span>
+    }
+<span class="fc" id="L87">    return ontology;</span>
+  }
+
+  /**
+   * Load the default &lt;i&gt;sweetAll.owl&lt;/i&gt; ontology
+   * from &lt;a href=&quot;https://raw.githubusercontent.com/ESIPFed/sweet/master/2.4/sweetAll.owl&quot;&gt;
+   * https://raw.githubusercontent.com/ESIPFed/sweet/master/2.4/sweetAll.owl&lt;/a&gt;
+   */
+  @Override
+  public void load() {
+<span class="fc" id="L97">    URL ontURL = null;</span>
+    try {
+<span class="fc" id="L99">      ontURL = new URL(&quot;https://raw.githubusercontent.com/ESIPFed/sweet/master/2.4/sweetAll.owl&quot;);</span>
+      //ontURL = new URL(&quot;https://raw.githubusercontent.com/ESIPFed/sweet/master/2.4/reprDataProduct.owl&quot;);
+<span class="nc" id="L101">    } catch (MalformedURLException e) {</span>
+<span class="nc" id="L102">      LOG.error(&quot;Error when attempting to create URL resource: &quot;, e);</span>
+<span class="fc" id="L103">    }</span>
+<span class="fc" id="L104">    ontArrayList = new ArrayList&lt;&gt;();</span>
+    try {
+<span class="fc" id="L106">      ontArrayList.add(ontURL.toURI().toString());</span>
+<span class="nc" id="L107">    } catch (URISyntaxException e) {</span>
+<span class="nc" id="L108">      LOG.error(&quot;Error in URL syntax, please check your Ontology resource: &quot;, e);</span>
+<span class="fc" id="L109">    }</span>
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">    if (!ontArrayList.isEmpty()) {</span>
+<span class="fc" id="L111">      load(ontArrayList.stream().toArray(String[]::new));</span>
+    }
+<span class="fc" id="L113">  }</span>
+
+  /**
+   * Load a string array of local URIs which refernece .owl files.
+   */
+  @Override
+  public void load(String[] urls) {
+<span class="fc bfc" id="L120" title="All 2 branches covered.">    for (int i = 0; i &lt; urls.length; i++) {</span>
+<span class="fc" id="L121">      String url = urls[i].trim();</span>
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">      if (!&quot;&quot;.equals(url))</span>
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">        if (LOG.isInfoEnabled()) {</span>
+<span class="fc" id="L124">          LOG.info(&quot;Reading and processing {}&quot;, url);</span>
+        }
+<span class="fc" id="L126">      load(ontologyModel, url);</span>
+    }
+<span class="fc" id="L128">    parser.parse(ontology, ontologyModel);</span>
+<span class="fc" id="L129">  }</span>
+
+  private void load(Object m, String url) {
+    try {
+<span class="nc" id="L133">      ((OntModel) m).read(url, null, null);</span>
+<span class="nc" id="L134">      LOG.info(&quot;Successfully processed {}&quot;, url);</span>
+<span class="fc" id="L135">    } catch (Exception e) {</span>
+<span class="fc" id="L136">      LOG.error(&quot;Failed whilst attempting to read ontology {}: Error: &quot;, url, e);</span>
+<span class="nc" id="L137">    }</span>
+<span class="fc" id="L138">  }</span>
+
+  /**
+   * Get the {@link gov.nasa.jpl.mudrod.ontology.process.OntologyParser}
+   * implementation being used to process the input ontology resources.
+   * @return an {@link gov.nasa.jpl.mudrod.ontology.process.OntologyParser} implementation
+   */
+  public OntologyParser getParser() {
+<span class="nc bnc" id="L146" title="All 2 branches missed.">    if (parser == null) {</span>
+<span class="nc" id="L147">      parser = new OwlParser();</span>
+    }
+<span class="nc" id="L149">    return parser;</span>
+  }
+
+  /**
+   * Return the {@link org.apache.jena.ontology.OntModel} instance
+   * which created from input ontology resources.
+   * @return a constructed {@link org.apache.jena.ontology.OntModel}
+   */
+  public static OntModel getModel() {
+<span class="nc" id="L158">    return ontologyModel;</span>
+  }
+
+  /**
+   * Return the loaded Ontology resources.
+   * @return a {@link java.util.List} of resources.
+   */
+  public List&lt;String&gt; getLoadedOntologyResources() {
+<span class="nc bnc" id="L166" title="All 2 branches missed.">    if (ontArrayList != null) {</span>
+<span class="nc" id="L167">      return ontArrayList;</span>
+    } else {
+<span class="nc" id="L169">      return new ArrayList&lt;&gt;();</span>
+    }
+  }
+  /**
+   * Not yet implemented.
+   */
+  @Override
+  public void merge(Ontology o) {
+    // not yet implemented
+<span class="nc" id="L178">  }</span>
+
+  /**
+   * Retrieve all subclasses of entity(ies) hashed to searchTerm
+   * @param entitySearchTerm a query (keywords) for which to obtain
+   * subclasses.
+   * @return an {@link java.util.Iterator} containing the subclass as Strings.
+   */
+  @Override
+  public Iterator&lt;String&gt; subclasses(String entitySearchTerm) {
+<span class="nc" id="L188">    Map&lt;OntResource, String&gt; classMap = retrieve(entitySearchTerm);</span>
+<span class="nc" id="L189">    Map&lt;String, String&gt; subclasses = new HashMap&lt;&gt;();</span>
+
+<span class="nc" id="L191">    Iterator&lt;OntResource&gt; iter = classMap.keySet().iterator();</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">    while (iter.hasNext()) {</span>
+<span class="nc" id="L193">      OntResource resource = iter.next();</span>
+
+<span class="nc bnc" id="L195" title="All 2 branches missed.">      if (resource instanceof OntClass) {</span>
+        //get subclasses N.B. we only get direct sub-classes e.g. direct children
+        //it is possible for us to navigate the entire class tree if we wish, we simply
+        //need to pass the .listSubClasses(true) boolean parameter.
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        for (Iterator&lt;?&gt; i = ((OntClass) resource).listSubClasses(); i.hasNext();) {</span>
+<span class="nc" id="L200">          OntResource subclass = (OntResource) i.next();</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">          for (Iterator&lt;?&gt; j = subclass.listLabels(null); j.hasNext();) {</span>
+<span class="nc" id="L202">            Literal l = (Literal) j.next();</span>
+<span class="nc" id="L203">            subclasses.put(l.toString(), &quot;1&quot;);</span>
+<span class="nc" id="L204">          }</span>
+<span class="nc" id="L205">        }</span>
+        //get individuals
+<span class="nc bnc" id="L207" title="All 2 branches missed.">        for (Iterator&lt;?&gt; i = ((OntClass) resource).listInstances(); i.hasNext(); ) {</span>
+<span class="nc" id="L208">          OntResource subclass = (OntResource) i.next();</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">          for (Iterator&lt;?&gt; j = subclass.listLabels(null); j.hasNext();) {</span>
+<span class="nc" id="L210">            Literal l = (Literal) j.next();</span>
+<span class="nc" id="L211">            subclasses.put(l.toString(), &quot;1&quot;);</span>
+<span class="nc" id="L212">          }</span>
+<span class="nc" id="L213">        }</span>
+<span class="nc bnc" id="L214" title="All 2 branches missed.">      } else if (resource instanceof Individual) {</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">        for (Iterator&lt;?&gt; i = resource.listSameAs(); i.hasNext();) {</span>
+<span class="nc" id="L216">          OntResource subclass = (OntResource) i.next();</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">          for (Iterator&lt;?&gt; j = subclass.listLabels(null); j.hasNext();) {</span>
+<span class="nc" id="L218">            Literal l = (Literal) j.next();</span>
+<span class="nc" id="L219">            subclasses.put(l.toString(), &quot;1&quot;);</span>
+<span class="nc" id="L220">          }</span>
+<span class="nc" id="L221">        }</span>
+      }
+<span class="nc" id="L223">    }</span>
+<span class="nc" id="L224">    return subclasses.keySet().iterator();</span>
+  }
+
+  /**
+   * Retreives synonyms for an given phrase if the phrase
+   * is present in the ontology
+   * @param queryKeyPhrase an input string representing a phrase
+   * for which we wish to obtain synonyms.
+   * @return an {@link java.util.Iterator} containing synonyms string tokens
+   * or an empty if no synonyms exist for the given queryKeyPhrase.
+   */
+  @Override
+  public Iterator synonyms(String queryKeyPhrase) {
+
+<span class="nc" id="L238">    Map&lt;?, ?&gt; classMap = retrieve(queryKeyPhrase);</span>
+
+<span class="nc" id="L240">    Map&lt;Object, Object&gt; synonyms = new HashMap&lt;&gt;();</span>
+
+<span class="nc" id="L242">    Iterator&lt;?&gt; iter = classMap.keySet().iterator();</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">    while (iter.hasNext()) {</span>
+<span class="nc" id="L244">      OntResource resource = (OntResource) iter.next();</span>
+
+      //listLabels
+<span class="nc bnc" id="L247" title="All 2 branches missed.">      for (Iterator&lt;?&gt; i = resource.listLabels(null); i.hasNext();) {</span>
+<span class="nc" id="L248">        Literal l = (Literal) i.next();</span>
+<span class="nc" id="L249">        synonyms.put(l.toString(), &quot;1&quot;);</span>
+<span class="nc" id="L250">      }</span>
+
+<span class="nc bnc" id="L252" title="All 2 branches missed.">      if (resource instanceof Individual) {</span>
+        //get all individuals same as this one
+<span class="nc bnc" id="L254" title="All 2 branches missed.">        for (Iterator&lt;?&gt; i = resource.listSameAs(); i.hasNext();) {</span>
+<span class="nc" id="L255">          Individual individual = (Individual) i.next();</span>
+          //add labels
+<span class="nc bnc" id="L257" title="All 2 branches missed.">          for (Iterator&lt;?&gt; j = individual.listLabels(null); j.hasNext();) {</span>
+<span class="nc" id="L258">            Literal l = (Literal) i.next();</span>
+<span class="nc" id="L259">            synonyms.put(l.toString(), &quot;1&quot;);</span>
+<span class="nc" id="L260">          }</span>
+<span class="nc" id="L261">        }</span>
+<span class="nc bnc" id="L262" title="All 2 branches missed.">      } else if (resource instanceof OntClass) {</span>
+        //list equivalent classes
+<span class="nc bnc" id="L264" title="All 2 branches missed.">        for (Iterator&lt;?&gt; i = ((OntClass) resource).listEquivalentClasses(); i.hasNext();) {</span>
+<span class="nc" id="L265">          OntClass equivClass = (OntClass) i.next();</span>
+          //add labels
+<span class="nc bnc" id="L267" title="All 2 branches missed.">          for (Iterator&lt;?&gt; j = equivClass.listLabels(null); j.hasNext();) {</span>
+<span class="nc" id="L268">            Literal l = (Literal) j.next();</span>
+<span class="nc" id="L269">            synonyms.put(l.toString(), &quot;1&quot;);</span>
+<span class="nc" id="L270">          }</span>
+<span class="nc" id="L271">        }</span>
+      }
+<span class="nc" id="L273">    }</span>
+
+<span class="nc" id="L275">    return synonyms.keySet().iterator();</span>
+  }
+
+  public void addSearchTerm(String label, OntResource resource) {
+<span class="nc" id="L279">    Map&lt;OntResource, String&gt; m = retrieve(label);</span>
+<span class="nc bnc" id="L280" title="All 2 branches missed.">    if (m == null) {</span>
+<span class="nc" id="L281">      m = new HashMap&lt;&gt;();</span>
+    }
+<span class="nc" id="L283">    m.put(resource, &quot;1&quot;);</span>
+<span class="nc" id="L284">    searchTerms.put(label.toLowerCase(), m);</span>
+<span class="nc" id="L285">  }</span>
+
+  /**
+   * A basic lookup function for retrieving keys (phrases or tokens)
+   * from the ontology search terms map. Right now only exact lookups
+   * will retrieve a result... this could be improved by using some
+   * advanced parsing logic... such as Lucene query parser.
+   * @param label the label (phrases or tokens) to retrieve from the 
+   * ontology search terms map.
+   * @return an {@link java.util.Map} if there are match(es)
+   * or an empty {@link java.util.HashMap} if there are no
+   * matches.
+   */
+  public Map&lt;OntResource, String&gt; retrieve(String label) {
+    @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L300">    Map&lt;OntResource, String&gt; m = (Map&lt;OntResource, String&gt;) searchTerms.get(label.toLowerCase());</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">    if (m == null) {</span>
+<span class="nc" id="L302">      m = new HashMap&lt;&gt;();</span>
+    }
+<span class="nc" id="L304">    return m;</span>
+  }
+
+  protected static void renderHierarchy(PrintStream out, OntClass cls, List&lt;Object&gt; occurs, int depth) {
+<span class="nc" id="L308">    renderClassDescription(out, cls, depth);</span>
+<span class="nc" id="L309">    out.println();</span>
+
+    // recurse to the next level down
+<span class="nc bnc" id="L312" title="All 4 branches missed.">    if (cls.canAs(OntClass.class) &amp;&amp; !occurs.contains(cls)) {</span>
+<span class="nc bnc" id="L313" title="All 2 branches missed.">      for (Iterator&lt;?&gt; i = cls.listSubClasses(true); i.hasNext(); ) {</span>
+<span class="nc" id="L314">        OntClass sub = (OntClass) i.next();</span>
+
+        // we push this expression on the occurs list before we recurse
+<span class="nc" id="L317">        occurs.add(cls);</span>
+<span class="nc" id="L318">        renderHierarchy(out, sub, occurs, depth + 1);</span>
+<span class="nc" id="L319">        occurs.remove(cls);</span>
+<span class="nc" id="L320">      }</span>
+<span class="nc bnc" id="L321" title="All 2 branches missed.">      for (Iterator&lt;?&gt; i = cls.listInstances(); i.hasNext(); ) {</span>
+<span class="nc" id="L322">        Individual individual = (Individual) i.next();</span>
+<span class="nc" id="L323">        renderURI(out, individual.getModel(), individual.getURI());</span>
+<span class="nc" id="L324">        out.print(&quot; [&quot;);</span>
+<span class="nc bnc" id="L325" title="All 2 branches missed.">        for (Iterator&lt;?&gt; j = individual.listLabels(null); j.hasNext(); ) {</span>
+<span class="nc" id="L326">          out.print(((Literal) j.next()).getString() + &quot;, &quot;);</span>
+        }
+<span class="nc" id="L328">        out.print(&quot;] &quot;);</span>
+<span class="nc" id="L329">        out.println();</span>
+<span class="nc" id="L330">      }</span>
+    }
+<span class="nc" id="L332">  }</span>
+
+  public static void renderClassDescription(PrintStream out, OntClass c, int depth) {
+<span class="nc" id="L335">    indent(out, depth);</span>
+
+<span class="nc bnc" id="L337" title="All 2 branches missed.">    if (c.isRestriction()) {</span>
+<span class="nc" id="L338">      renderRestriction(out, (Restriction) c.as(Restriction.class));</span>
+    } else {
+<span class="nc bnc" id="L340" title="All 2 branches missed.">      if (!c.isAnon()) {</span>
+<span class="nc" id="L341">        out.print(&quot;Class &quot;);</span>
+<span class="nc" id="L342">        renderURI(out, c.getModel(), c.getURI());</span>
+
+<span class="nc" id="L344">        out.print(c.getLocalName());</span>
+
+<span class="nc" id="L346">        out.print(&quot; [&quot;);</span>
+<span class="nc bnc" id="L347" title="All 2 branches missed.">        for (Iterator&lt;?&gt; i = c.listLabels(null); i.hasNext(); ) {</span>
+<span class="nc" id="L348">          out.print(((Literal) i.next()).getString() + &quot;, &quot;);</span>
+        }
+<span class="nc" id="L350">        out.print(&quot;] &quot;);</span>
+      } else {
+<span class="nc" id="L352">        renderAnonymous(out, c, &quot;class&quot;);</span>
+      }
+    }
+<span class="nc" id="L355">  }</span>
+
+  protected static void renderRestriction(PrintStream out, Restriction r) {
+<span class="nc bnc" id="L358" title="All 2 branches missed.">    if (!r.isAnon()) {</span>
+<span class="nc" id="L359">      out.print(&quot;Restriction &quot;);</span>
+<span class="nc" id="L360">      renderURI(out, r.getModel(), r.getURI());</span>
+    } else {
+<span class="nc" id="L362">      renderAnonymous(out, r, &quot;restriction&quot;);</span>
+    }
+
+<span class="nc" id="L365">    out.print(&quot; on property &quot;);</span>
+<span class="nc" id="L366">    renderURI(out, r.getModel(), r.getOnProperty().getURI());</span>
+<span class="nc" id="L367">  }</span>
+
+  protected static void renderURI(PrintStream out, PrefixMapping prefixes, String uri) {
+<span class="nc" id="L370">    out.print(prefixes.expandPrefix(uri));</span>
+<span class="nc" id="L371">  }</span>
+
+  protected static void renderAnonymous(PrintStream out, Resource anon, String name) {
+<span class="nc" id="L374">    String anonID = mAnonIDs.get(anon.getId());</span>
+<span class="nc bnc" id="L375" title="All 2 branches missed.">    if (anonID == null) {</span>
+<span class="nc" id="L376">      anonID = &quot;a-&quot; + mAnonCount++;</span>
+<span class="nc" id="L377">      mAnonIDs.put(anon.getId(), anonID);</span>
+    }
+
+<span class="nc" id="L380">    out.print(&quot;Anonymous &quot;);</span>
+<span class="nc" id="L381">    out.print(name);</span>
+<span class="nc" id="L382">    out.print(&quot; with ID &quot;);</span>
+<span class="nc" id="L383">    out.print(anonID);</span>
+<span class="nc" id="L384">  }</span>
+
+  protected static void indent(PrintStream out, int depth) {
+<span class="nc bnc" id="L387" title="All 2 branches missed.">    for (int i = 0; i &lt; depth; i++) {</span>
+<span class="nc" id="L388">      out.print(&quot; &quot;);</span>
+    }
+<span class="nc" id="L390">  }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

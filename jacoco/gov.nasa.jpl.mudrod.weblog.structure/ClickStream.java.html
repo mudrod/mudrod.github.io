@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ClickStream.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.structure</a> &gt; <span class="el_source">ClickStream.java</span></div><h1>ClickStream.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.weblog.structure;
+
+import org.codehaus.jettison.json.JSONException;
+import org.codehaus.jettison.json.JSONObject;
+
+import java.io.Serializable;
+
+/**
+ * ClassName: ClickStream Function: user click stream data related operations.
+ */
+public class ClickStream implements Serializable {
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+  // keywords: query words related to the click behaviour
+  private String keywords;
+  // viewDataset: the dataset name user viewed
+  private String viewDataset;
+  // downloadDataset: the dataset name user downloaded
+  private String downloadDataset;
+  // sessionID: session ID
+  private String sessionID;
+  // type: session type name
+  private String type;
+
+  /**
+   * Creates a new instance of ClickStream.
+   *
+   * @param keywords    the query user searched
+   * @param viewDataset the dataset name user viewed
+   * @param download:   if user download the data set after viewing it, this parameter is
+   *                    true, otherwise, it is false.
+   */
+<span class="nc" id="L48">  public ClickStream(String keywords, String viewDataset, boolean download) {</span>
+<span class="nc" id="L49">    this.keywords = keywords;</span>
+<span class="nc" id="L50">    this.viewDataset = viewDataset;</span>
+<span class="nc" id="L51">    this.downloadDataset = &quot;&quot;;</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">    if (download) {</span>
+<span class="nc" id="L53">      this.downloadDataset = viewDataset;</span>
+    }
+<span class="nc" id="L55">  }</span>
+
+<span class="nc" id="L57">  public ClickStream() {</span>
+    //default constructor
+<span class="nc" id="L59">  }</span>
+
+  public String getSessionID() {
+<span class="nc" id="L62">    return sessionID;</span>
+  }
+
+  /**
+   * setKeyWords: Set the query user searched.
+   *
+   * @param query search words
+   */
+  public void setKeyWords(String query) {
+<span class="nc" id="L71">    this.keywords = query;</span>
+<span class="nc" id="L72">  }</span>
+
+  /**
+   * setViewDataset:Set the data set name user viewed
+   *
+   * @param dataset short name of data set
+   */
+  public void setViewDataset(String dataset) {
+<span class="nc" id="L80">    this.viewDataset = dataset;</span>
+<span class="nc" id="L81">  }</span>
+
+  /**
+   * setDownloadDataset: Set the data set name user downloaded
+   *
+   * @param dataset short name of data set
+   */
+  public void setDownloadDataset(String dataset) {
+<span class="nc" id="L89">    this.downloadDataset = dataset;</span>
+<span class="nc" id="L90">  }</span>
+
+  /**
+   * getKeyWords: Get the query user searched
+   *
+   * @return data set name
+   */
+  public String getKeyWords() {
+<span class="nc" id="L98">    return this.keywords;</span>
+  }
+
+  /**
+   * getViewDataset: Get the data set user viewed
+   *
+   * @return data set name
+   */
+  public String getViewDataset() {
+<span class="nc" id="L107">    return this.viewDataset;</span>
+  }
+
+  /**
+   * isDownload: Show whether the data is downloaded in the session.
+   *
+   * @return True or False
+   */
+  public Boolean isDownload() {
+<span class="nc bnc" id="L116" title="All 2 branches missed.">    if (&quot;&quot;.equals(this.downloadDataset)) {</span>
+<span class="nc" id="L117">      return false;</span>
+    }
+<span class="nc" id="L119">    return true;</span>
+  }
+
+  /**
+   * setSessionId: Set ID of session
+   *
+   * @param sessionID session id
+   */
+  public void setSessionId(String sessionID) {
+<span class="nc" id="L128">    this.sessionID = sessionID;</span>
+<span class="nc" id="L129">  }</span>
+
+  /**
+   * setType: Set session type name
+   *
+   * @param type session type name in elasticsearch
+   */
+  public void setType(String type) {
+<span class="nc" id="L137">    this.type = type;</span>
+<span class="nc" id="L138">  }</span>
+
+  /**
+   * Output click stream info in string format
+   *
+   * @see java.lang.Object#toString()
+   */
+  @Override
+  public String toString() {
+<span class="nc" id="L147">    return &quot;Query: &quot; + keywords + &quot; || View Dataset: &quot; + viewDataset + &quot; || Download Dataset: &quot; + downloadDataset;</span>
+  }
+
+  /**
+   * toJson: Output click stream info in Json format
+   *
+   * @return session in string format
+   */
+  public String toJson() {
+<span class="nc" id="L156">    String jsonQuery = &quot;{&quot;;</span>
+<span class="nc" id="L157">    jsonQuery += &quot;\&quot;query\&quot;:\&quot;&quot; + this.keywords + &quot;\&quot;,&quot;;</span>
+<span class="nc" id="L158">    jsonQuery += &quot;\&quot;viewdataset\&quot;:\&quot;&quot; + this.viewDataset + &quot;\&quot;,&quot;;</span>
+<span class="nc" id="L159">    jsonQuery += &quot;\&quot;downloaddataset\&quot;:\&quot;&quot; + this.downloadDataset + &quot;\&quot;,&quot;;</span>
+<span class="nc" id="L160">    jsonQuery += &quot;\&quot;sessionId\&quot;:\&quot;&quot; + this.sessionID + &quot;\&quot;,&quot;;</span>
+<span class="nc" id="L161">    jsonQuery += &quot;\&quot;type\&quot;:\&quot;&quot; + this.type + &quot;\&quot;&quot;;</span>
+<span class="nc" id="L162">    jsonQuery += &quot;},&quot;;</span>
+<span class="nc" id="L163">    return jsonQuery;</span>
+  }
+
+  /**
+   * parseFromTextLine: Convert string to click stream data
+   *
+   * @param logline http log line
+   * @return {@link ClickStream}
+   */
+  public static ClickStream parseFromTextLine(String logline) {
+<span class="nc" id="L173">    JSONObject jsonData = null;</span>
+<span class="nc" id="L174">    ClickStream data = null;</span>
+    try {
+<span class="nc" id="L176">      jsonData = new JSONObject(logline);</span>
+<span class="nc" id="L177">      data = new ClickStream();</span>
+<span class="nc" id="L178">      data.setKeyWords(jsonData.getString(&quot;query&quot;));</span>
+<span class="nc" id="L179">      data.setViewDataset(jsonData.getString(&quot;viewdataset&quot;));</span>
+<span class="nc" id="L180">      data.setDownloadDataset(jsonData.getString(&quot;downloaddataset&quot;));</span>
+
+<span class="nc" id="L182">    } catch (JSONException e) {</span>
+<span class="nc" id="L183">      e.printStackTrace();</span>
+<span class="nc" id="L184">    }</span>
+
+<span class="nc" id="L186">    return data;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

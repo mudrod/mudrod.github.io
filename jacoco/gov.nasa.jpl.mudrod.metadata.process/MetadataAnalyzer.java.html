@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MetadataAnalyzer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.metadata.process</a> &gt; <span class="el_source">MetadataAnalyzer.java</span></div><h1>MetadataAnalyzer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.metadata.process;
+
+import gov.nasa.jpl.mudrod.discoveryengine.DiscoveryStepAbstract;
+import gov.nasa.jpl.mudrod.driver.ESDriver;
+import gov.nasa.jpl.mudrod.driver.SparkDriver;
+import gov.nasa.jpl.mudrod.semantics.SVDAnalyzer;
+import gov.nasa.jpl.mudrod.utils.LinkageTriple;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.Serializable;
+import java.util.List;
+import java.util.Properties;
+
+/**
+ * ClassName: MetadataAnalyzer
+ * Function: Calculate semantic relationship of vocabularies extracted from
+ * metadata.
+ */
+public class MetadataAnalyzer extends DiscoveryStepAbstract implements Serializable {
+
+  /**
+   *
+   */
+  private static final long serialVersionUID = 1L;
+<span class="nc" id="L39">  private static final Logger LOG = LoggerFactory.getLogger(MetadataAnalyzer.class);</span>
+
+  /**
+   * Creates a new instance of MetadataAnalyzer.
+   *
+   * @param props the Mudrod configuration
+   * @param es    the Elasticsearch drive
+   * @param spark the spark drive
+   */
+  public MetadataAnalyzer(Properties props, ESDriver es, SparkDriver spark) {
+<span class="nc" id="L49">    super(props, es, spark);</span>
+<span class="nc" id="L50">  }</span>
+
+  @Override
+  public Object execute(Object o) {
+<span class="nc" id="L54">    return null;</span>
+  }
+
+  /**
+   * Calculate semantic relationship of vocabularies from a csv file which is a
+   * term-metadata matrix.
+   *
+   * @see DiscoveryStepAbstract#execute()
+   */
+  @Override
+  public Object execute() {
+    try {
+<span class="nc" id="L66">      LOG.info(&quot;*****************Metadata Analyzer starts******************&quot;);</span>
+<span class="nc" id="L67">      startTime = System.currentTimeMillis();</span>
+
+<span class="nc" id="L69">      SVDAnalyzer analyzer = new SVDAnalyzer(props, es, spark);</span>
+<span class="nc" id="L70">      int svdDimension = Integer.parseInt(props.getProperty(&quot;metadataSVDDimension&quot;));</span>
+<span class="nc" id="L71">      String metadataMatrixFile = props.getProperty(&quot;metadataMatrix&quot;);</span>
+<span class="nc" id="L72">      String svdMatrixFileName = props.getProperty(&quot;metadataSVDMatrix_tmp&quot;);</span>
+
+<span class="nc" id="L74">      analyzer.getSVDMatrix(metadataMatrixFile, svdDimension, svdMatrixFileName);</span>
+<span class="nc" id="L75">      List&lt;LinkageTriple&gt; triples = analyzer.calTermSimfromMatrix(svdMatrixFileName);</span>
+
+<span class="nc" id="L77">      analyzer.saveToES(triples, props.getProperty(&quot;indexName&quot;), props.getProperty(&quot;metadataLinkageType&quot;));</span>
+
+<span class="nc" id="L79">    } catch (Exception e) {</span>
+<span class="nc" id="L80">      e.printStackTrace();</span>
+<span class="nc" id="L81">    }</span>
+
+<span class="nc" id="L83">    endTime = System.currentTimeMillis();</span>
+<span class="nc" id="L84">    es.refreshIndex();</span>
+<span class="nc" id="L85">    LOG.info(&quot;*****************Metadata Analyzer ends******************Took {}s&quot;, (endTime - startTime) / 1000);</span>
+<span class="nc" id="L86">    return null;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SimilarityUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.utils</a> &gt; <span class="el_source">SimilarityUtil.java</span></div><h1>SimilarityUtil.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you
+ * may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.utils;
+
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.Optional;
+import org.apache.spark.api.java.function.Function;
+import org.apache.spark.api.java.function.PairFunction;
+import org.apache.spark.mllib.linalg.Vector;
+import org.apache.spark.mllib.linalg.distributed.CoordinateMatrix;
+import org.apache.spark.mllib.linalg.distributed.IndexedRowMatrix;
+import org.apache.spark.mllib.linalg.distributed.MatrixEntry;
+import org.apache.spark.mllib.linalg.distributed.RowMatrix;
+import scala.Tuple2;
+
+import java.util.List;
+
+/**
+ * Similarity and distrance calculation utilities
+ */
+<span class="nc" id="L33">public class SimilarityUtil {</span>
+
+  public static final int SIM_COSINE = 3;
+  public static final int SIM_HELLINGER = 2;
+  public static final int SIM_PEARSON = 1;
+  /**
+   * CalSimilarityFromMatrix: Calculate term similarity from matrix.
+   *
+   * @param svdMatrix. Each row is corresponding to a term, and each column is
+   *                   corresponding to a dimension of feature
+   * @return CoordinateMatrix, each row is corresponding to a term, and each
+   * column is also a term, the cell value is the similarity between the
+   * two terms
+   */
+  public static CoordinateMatrix calculateSimilarityFromMatrix(RowMatrix svdMatrix) {
+<span class="nc" id="L48">    JavaRDD&lt;Vector&gt; vecs = svdMatrix.rows().toJavaRDD();</span>
+<span class="nc" id="L49">    return SimilarityUtil.calculateSimilarityFromVector(vecs);</span>
+  }
+
+  /**
+   * CalSimilarityFromVector:Calculate term similarity from vector.
+   *
+   * @param vecs Each vector is corresponding to a term in the feature space.
+   * @return CoordinateMatrix, each row is corresponding to a term, and each
+   * column is also a term, the cell value is the similarity between the
+   * two terms
+   */
+  public static CoordinateMatrix calculateSimilarityFromVector(JavaRDD&lt;Vector&gt; vecs) {
+<span class="nc" id="L61">    IndexedRowMatrix indexedMatrix = MatrixUtil.buildIndexRowMatrix(vecs);</span>
+<span class="nc" id="L62">    RowMatrix transposeMatrix = MatrixUtil.transposeMatrix(indexedMatrix);</span>
+<span class="nc" id="L63">    return transposeMatrix.columnSimilarities();</span>
+  }
+
+  /**
+   * Calculate term similarity from vector.
+   *
+   * @param importRDD the {@link org.apache.spark.api.java.JavaPairRDD}
+   *                  data structure containing the vectors.
+   * @param simType   the similarity calculation to execute e.g. 
+   * &lt;ul&gt;
+   * &lt;li&gt;{@link gov.nasa.jpl.mudrod.utils.SimilarityUtil#SIM_COSINE} - 3,&lt;/li&gt;
+   * &lt;li&gt;{@link gov.nasa.jpl.mudrod.utils.SimilarityUtil#SIM_HELLINGER} - 2,&lt;/li&gt;
+   * &lt;li&gt;{@link gov.nasa.jpl.mudrod.utils.SimilarityUtil#SIM_PEARSON} - 1&lt;/li&gt;
+   * &lt;/ul&gt;
+   * @return a new {@link org.apache.spark.api.java.JavaPairRDD}
+   */
+  public static JavaRDD&lt;LinkageTriple&gt; calculateSimilarityFromVector(JavaPairRDD&lt;String, Vector&gt; importRDD, int simType) {
+<span class="nc" id="L80">    JavaRDD&lt;Tuple2&lt;String, Vector&gt;&gt; importRDD1 = importRDD.map(f -&gt; new Tuple2&lt;String, Vector&gt;(f._1, f._2));</span>
+<span class="nc" id="L81">    JavaPairRDD&lt;Tuple2&lt;String, Vector&gt;, Tuple2&lt;String, Vector&gt;&gt; cartesianRDD = importRDD1.cartesian(importRDD1);</span>
+
+<span class="nc" id="L83">    return cartesianRDD.map(new Function&lt;Tuple2&lt;Tuple2&lt;String, Vector&gt;, Tuple2&lt;String, Vector&gt;&gt;, LinkageTriple&gt;() {</span>
+
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public LinkageTriple call(Tuple2&lt;Tuple2&lt;String, Vector&gt;, Tuple2&lt;String, Vector&gt;&gt; arg) {
+<span class="nc" id="L92">        String keyA = arg._1._1;</span>
+<span class="nc" id="L93">        String keyB = arg._2._1;</span>
+
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        if (keyA.equals(keyB)) {</span>
+<span class="nc" id="L96">          return null;</span>
+        }
+
+<span class="nc" id="L99">        Vector vecA = arg._1._2;</span>
+<span class="nc" id="L100">        Vector vecB = arg._2._2;</span>
+<span class="nc" id="L101">        Double weight = 0.0;</span>
+
+<span class="nc bnc" id="L103" title="All 2 branches missed.">        if (simType == SimilarityUtil.SIM_PEARSON) {</span>
+<span class="nc" id="L104">          weight = SimilarityUtil.pearsonDistance(vecA, vecB);</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        } else if (simType == SimilarityUtil.SIM_HELLINGER) {</span>
+<span class="nc" id="L106">          weight = SimilarityUtil.hellingerDistance(vecA, vecB);</span>
+        }
+
+<span class="nc" id="L109">        LinkageTriple triple = new LinkageTriple();</span>
+<span class="nc" id="L110">        triple.keyA = keyA;</span>
+<span class="nc" id="L111">        triple.keyB = keyB;</span>
+<span class="nc" id="L112">        triple.weight = weight;</span>
+<span class="nc" id="L113">        return triple;</span>
+      }
+<span class="nc" id="L115">    }).filter(new Function&lt;LinkageTriple, Boolean&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Boolean call(LinkageTriple arg0) throws Exception {
+<span class="nc bnc" id="L123" title="All 2 branches missed.">        if (arg0 == null) {</span>
+<span class="nc" id="L124">          return false;</span>
+        }
+<span class="nc" id="L126">        return true;</span>
+      }
+    });
+  }
+
+  /**
+   * MatrixtoTriples:Convert term similarity matrix to linkage triple list.
+   *
+   * @param keys      each key is a term
+   * @param simMatirx term similarity matrix, in which each row and column is a term and
+   *                  the cell value is the similarity between the two terms
+   * @return linkage triple list
+   */
+  public static List&lt;LinkageTriple&gt; matrixToTriples(JavaRDD&lt;String&gt; keys, CoordinateMatrix simMatirx) {
+<span class="nc bnc" id="L140" title="All 2 branches missed.">    if (simMatirx.numCols() != keys.count()) {</span>
+<span class="nc" id="L141">      return null;</span>
+    }
+
+    // index words
+<span class="nc" id="L145">    JavaPairRDD&lt;Long, String&gt; keyIdRDD = JavaPairRDD.fromJavaRDD(keys.zipWithIndex().map(new Function&lt;Tuple2&lt;String, Long&gt;, Tuple2&lt;Long, String&gt;&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;Long, String&gt; call(Tuple2&lt;String, Long&gt; docId) {
+<span class="nc" id="L153">        return docId.swap();</span>
+      }
+    }));
+
+<span class="nc" id="L157">    JavaPairRDD&lt;Long, LinkageTriple&gt; entriesRowRDD = simMatirx.entries().toJavaRDD().mapToPair(new PairFunction&lt;MatrixEntry, Long, LinkageTriple&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;Long, LinkageTriple&gt; call(MatrixEntry t) throws Exception {
+<span class="nc" id="L165">        LinkageTriple triple = new LinkageTriple();</span>
+<span class="nc" id="L166">        triple.keyAId = t.i();</span>
+<span class="nc" id="L167">        triple.keyBId = t.j();</span>
+<span class="nc" id="L168">        triple.weight = t.value();</span>
+<span class="nc" id="L169">        return new Tuple2&lt;&gt;(triple.keyAId, triple);</span>
+      }
+    });
+
+<span class="nc" id="L173">    JavaPairRDD&lt;Long, LinkageTriple&gt; entriesColRDD = entriesRowRDD.leftOuterJoin(keyIdRDD).values().mapToPair(new PairFunction&lt;Tuple2&lt;LinkageTriple, Optional&lt;String&gt;&gt;, Long, LinkageTriple&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public Tuple2&lt;Long, LinkageTriple&gt; call(Tuple2&lt;LinkageTriple, Optional&lt;String&gt;&gt; t) throws Exception {
+<span class="nc" id="L181">        LinkageTriple triple = t._1;</span>
+<span class="nc" id="L182">        Optional&lt;String&gt; stra = t._2;</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">        if (stra.isPresent()) {</span>
+<span class="nc" id="L184">          triple.keyA = stra.get();</span>
+        }
+<span class="nc" id="L186">        return new Tuple2&lt;&gt;(triple.keyBId, triple);</span>
+      }
+    });
+
+<span class="nc" id="L190">    JavaRDD&lt;LinkageTriple&gt; tripleRDD = entriesColRDD.leftOuterJoin(keyIdRDD).values().map(new Function&lt;Tuple2&lt;LinkageTriple, Optional&lt;String&gt;&gt;, LinkageTriple&gt;() {</span>
+      /**
+       *
+       */
+      private static final long serialVersionUID = 1L;
+
+      @Override
+      public LinkageTriple call(Tuple2&lt;LinkageTriple, Optional&lt;String&gt;&gt; t) throws Exception {
+<span class="nc" id="L198">        LinkageTriple triple = t._1;</span>
+<span class="nc" id="L199">        Optional&lt;String&gt; strb = t._2;</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">        if (strb.isPresent()) {</span>
+<span class="nc" id="L201">          triple.keyB = strb.get();</span>
+        }
+<span class="nc" id="L203">        return triple;</span>
+      }
+    });
+<span class="nc" id="L206">    return tripleRDD.collect();</span>
+  }
+
+  /**
+   * Calculate similarity (Hellinger Distance) between vectors
+   *
+   * @param vecA initial vector from which to calculate a similarity
+   * @param vecB second vector involved in similarity calculation
+   * @return similarity between two vectors
+   */
+  public static double hellingerDistance(Vector vecA, Vector vecB) {
+<span class="nc" id="L217">    double[] arrA = vecA.toArray();</span>
+<span class="nc" id="L218">    double[] arrB = vecB.toArray();</span>
+
+<span class="nc" id="L220">    double sim = 0.0;</span>
+
+<span class="nc" id="L222">    int arrsize = arrA.length;</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">    for (int i = 0; i &lt; arrsize; i++) {</span>
+<span class="nc" id="L224">      double a = arrA[i];</span>
+<span class="nc" id="L225">      double b = arrB[i];</span>
+<span class="nc" id="L226">      double sqrtDiff = Math.sqrt(a) - Math.sqrt(b);</span>
+<span class="nc" id="L227">      sim += sqrtDiff * sqrtDiff;</span>
+    }
+
+<span class="nc" id="L230">    sim = sim / Math.sqrt(2);</span>
+
+<span class="nc" id="L232">    return sim;</span>
+  }
+
+  /**
+   * Calculate similarity (Pearson Distance) between vectors
+   *
+   * @param vecA initial vector from which to calculate a similarity
+   * @param vecB second vector involved in similarity calculation
+   * @return similarity between two vectors
+   */
+  public static double pearsonDistance(Vector vecA, Vector vecB) {
+<span class="nc" id="L243">    double[] arrA = vecA.toArray();</span>
+<span class="nc" id="L244">    double[] arrB = vecB.toArray();</span>
+
+<span class="nc" id="L246">    int viewA = 0;</span>
+<span class="nc" id="L247">    int viewB = 0;</span>
+<span class="nc" id="L248">    int viewAB = 0;</span>
+
+<span class="nc" id="L250">    int arrsize = arrA.length;</span>
+<span class="nc bnc" id="L251" title="All 2 branches missed.">    for (int i = 0; i &lt; arrsize; i++) {</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">      if (arrA[i] &gt; 0) {</span>
+<span class="nc" id="L253">        viewA++;</span>
+      }
+
+<span class="nc bnc" id="L256" title="All 2 branches missed.">      if (arrB[i] &gt; 0) {</span>
+<span class="nc" id="L257">        viewB++;</span>
+      }
+
+<span class="nc bnc" id="L260" title="All 4 branches missed.">      if (arrB[i] &gt; 0 &amp;&amp; arrA[i] &gt; 0) {</span>
+<span class="nc" id="L261">        viewAB++;</span>
+      }
+    }
+<span class="nc" id="L264">    return viewAB / (Math.sqrt(viewA) * Math.sqrt(viewB));</span>
+  }
+
+  /**
+   * calculate similarity between vectors
+   *
+   * @param vecA initial vector from which to calculate a similarity
+   * @param vecB second vector involved in similarity calculation
+   * @return similarity between two vectors
+   */
+  public static double cosineDistance(Vector vecA, Vector vecB) {
+<span class="nc" id="L275">    return 1;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>

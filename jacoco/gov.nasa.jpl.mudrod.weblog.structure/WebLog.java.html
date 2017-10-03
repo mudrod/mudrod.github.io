@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WebLog.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Mudrod :: Core</a> &gt; <a href="index.source.html" class="el_package">gov.nasa.jpl.mudrod.weblog.structure</a> &gt; <span class="el_source">WebLog.java</span></div><h1>WebLog.java</h1><pre class="source lang-java linenums">/*
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you 
+ * may not use this file except in compliance with the License. 
+ * You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package gov.nasa.jpl.mudrod.weblog.structure;
+
+import java.io.Serializable;
+
+/**
+ * This class represents an Apache access log line. See
+ * http://httpd.apache.org/docs/2.2/logs.html for more details.
+ */
+public class WebLog implements Serializable {
+  String LogType;
+  String IP;
+  String Time;
+  String Request;
+  double Bytes;
+
+  public String getLogType() {
+<span class="nc" id="L30">    return this.LogType;</span>
+  }
+
+  public String getIP() {
+<span class="nc" id="L34">    return this.IP;</span>
+  }
+
+  public String getTime() {
+<span class="nc" id="L38">    return this.Time;</span>
+  }
+
+  public String getRequest() {
+<span class="nc" id="L42">    return this.Request;</span>
+  }
+
+  public double getBytes() {
+<span class="nc" id="L46">    return this.Bytes;</span>
+  }
+
+<span class="nc" id="L49">  public WebLog() {</span>
+
+<span class="nc" id="L51">  }</span>
+
+  public static String SwithtoNum(String time) {
+<span class="nc bnc" id="L54" title="All 2 branches missed.">    if (time.contains(&quot;Jan&quot;)) {</span>
+<span class="nc" id="L55">      time = time.replace(&quot;Jan&quot;, &quot;1&quot;);</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">    } else if (time.contains(&quot;Feb&quot;)) {</span>
+<span class="nc" id="L57">      time = time.replace(&quot;Feb&quot;, &quot;2&quot;);</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">    } else if (time.contains(&quot;Mar&quot;)) {</span>
+<span class="nc" id="L59">      time = time.replace(&quot;Mar&quot;, &quot;3&quot;);</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">    } else if (time.contains(&quot;Apr&quot;)) {</span>
+<span class="nc" id="L61">      time = time.replace(&quot;Apr&quot;, &quot;4&quot;);</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">    } else if (time.contains(&quot;May&quot;)) {</span>
+<span class="nc" id="L63">      time = time.replace(&quot;May&quot;, &quot;5&quot;);</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">    } else if (time.contains(&quot;Jun&quot;)) {</span>
+<span class="nc" id="L65">      time = time.replace(&quot;Jun&quot;, &quot;6&quot;);</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">    } else if (time.contains(&quot;Jul&quot;)) {</span>
+<span class="nc" id="L67">      time = time.replace(&quot;Jul&quot;, &quot;7&quot;);</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">    } else if (time.contains(&quot;Aug&quot;)) {</span>
+<span class="nc" id="L69">      time = time.replace(&quot;Aug&quot;, &quot;8&quot;);</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">    } else if (time.contains(&quot;Sep&quot;)) {</span>
+<span class="nc" id="L71">      time = time.replace(&quot;Sep&quot;, &quot;9&quot;);</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">    } else if (time.contains(&quot;Oct&quot;)) {</span>
+<span class="nc" id="L73">      time = time.replace(&quot;Oct&quot;, &quot;10&quot;);</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">    } else if (time.contains(&quot;Nov&quot;)) {</span>
+<span class="nc" id="L75">      time = time.replace(&quot;Nov&quot;, &quot;11&quot;);</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">    } else if (time.contains(&quot;Dec&quot;)) {</span>
+<span class="nc" id="L77">      time = time.replace(&quot;Dec&quot;, &quot;12&quot;);</span>
+    }
+<span class="nc" id="L79">    return time;</span>
+  }
+
+  public static boolean checknull(String s) {
+<span class="nc bnc" id="L83" title="All 2 branches missed.">    if (s.equals(&quot;{}&quot;)) {</span>
+<span class="nc" id="L84">      return false;</span>
+    }
+<span class="nc" id="L86">    return true;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.10.201709300959</span></div></body></html>
